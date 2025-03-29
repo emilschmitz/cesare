@@ -1,0 +1,10 @@
+secrets.env
+.venv
+__pycache__/
+*.py[cod]
+*.so
+.Python
+*.log
+.env
+.idea/
+.vscode/
