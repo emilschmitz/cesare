@@ -7,7 +7,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.schema import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
 from langchain_core.messages import HumanMessage
-from langsmith import Client
+from langsmith import Client, traceable
 
 
 class Environment:
@@ -36,6 +36,7 @@ class Environment:
         # Initialize LangSmith client
         self.langsmith_client = Client()
 
+    @traceable(run_type="llm", name="generate_response")
     def generate_response(self, history: List[Dict]) -> str:
         """
         Generate a response based on the full history.
