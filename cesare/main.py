@@ -4,12 +4,12 @@ from modules.agent import Agent
 from modules.environment import Environment
 import yaml
 
-MAX_STEPS = 10
 
 class CESARE:
     def __init__(self, api_key: str, config: dict):
         self._api_key = api_key
 
+        self.config = config
         models = config["models"]
         self.agent = Agent(api_key=self._api_key, model_name=models["agent"])
         self.environment = Environment(api_key=self._api_key, model_name=models["environment"])
@@ -18,9 +18,11 @@ class CESARE:
     def add_to_history(self, entry_type: str, content: str):
         self.history.append({"type": entry_type, "content": content})
 
-    def run_simulation(self, start_prompt: str, max_steps: int = MAX_STEPS):
+    def run_simulation(self, start_prompt: str):
         self.add_to_history("start_prompt", start_prompt)
 
+        max_steps = self.config["simulation"]["max_steps"]
+        
         for step in range(max_steps):
             # Get order from ACTOR
             instruction = self.agent.generate_instruction(self.history)

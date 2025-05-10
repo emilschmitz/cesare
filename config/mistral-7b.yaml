@@ -2,3 +2,6 @@ models:
     describer: "mistralai/Mistral-7B-Instruct-v0.2"
     environment: "mistralai/Mistral-7B-Instruct-v0.2"
     agent: "mistralai/Mistral-7B-Instruct-v0.2"
+
+simulation:
+  max_steps: 10
