@@ -1,19 +1,40 @@
 from typing import Dict, List
-from together import Together
 from random import binomialvariate
+import os
+from dotenv import load_dotenv
+from langchain_together import ChatTogether
+from langchain.prompts import ChatPromptTemplate
+from langchain.schema import StrOutputParser
+from langchain.schema.runnable import RunnablePassthrough
+from langchain_core.messages import HumanMessage
+from langsmith import Client
+
 
 class Environment:
-    def __init__(self, api_key: str, model_name: str):
+    def __init__(self, api_key: str = None, model_name: str = None):
         """
         Initialize the Environment with an API key and model name.
         
         Args:
-            api_key (str): API key for LLM access
-            model_name (str): Name of the model to use
+            api_key (str, optional): API key for LLM access. Defaults to loading from environment.
+            model_name (str, optional): Name of the model to use. Defaults to loading from environment.
         """
-        self.api_key = api_key
+        self.api_key = api_key or os.getenv("TOGETHER_API_KEY")
         self.model_name = model_name
-        self.client = Together(api_key=api_key)
+        
+        # Initialize LangSmith for tracing
+        os.environ["LANGCHAIN_TRACING_V2"] = "true"
+        os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
+        
+        # Initialize the LangChain model
+        self.model = ChatTogether(
+            model=self.model_name,
+            together_api_key=self.api_key,
+            temperature=1.1
+        )
+        
+        # Initialize LangSmith client
+        self.langsmith_client = Client()
 
     def generate_response(self, history: List[Dict]) -> str:
         """
@@ -26,16 +47,22 @@ class Environment:
             str: The generated environment response
         """
         prompt = self._create_prompt(history)
+        
         try:
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=1.1,
+            # Create and run a simple chain
+            chain = (
+                RunnablePassthrough()
+                | (lambda x: [HumanMessage(content=x["prompt"])])
+                | self.model
+                | StrOutputParser()
             )
-            return response.choices[0].message.content
+            
+            # Execute the chain with tracing
+            response = chain.invoke({"prompt": prompt}, {"run_name": "environment_response"})
+            return response
         except Exception as e:
             print(f"Error generating environment response: {e}")
-            return "Error: Could not generate environment response"
+            raise
 
     def _create_prompt(self, history: List[Dict]) -> str:
         context = "\n".join([
