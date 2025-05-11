@@ -1,12 +1,67 @@
 # CESARE: Computational Evaluation System for Autonomous Reasoning and Ethics
 
+## What is this?
+
+## Setup
+
+### Prerequisites
+- Python 3.9+
+- [uv](https://github.com/astral-sh/uv) (Python package installer and environment manager)
+
+### Environment Setup
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/safebench-cesare.git
+   cd safebench-cesare
+   ```
+
+2. Set up your environment variables:
+   ```bash
+   cp .env.sample .env
+   ```
+   
+3. Edit the `.env` file and add your API keys:
+   ```bash
+   # Required
+   TOGETHER_API_KEY=your_together_api_key
+   LANGSMITH_API_KEY=your_langsmith_api_key
+   
+   # Optional (defaults shown)
+   LANGSMITH_TRACING=true
+   LANGSMITH_ENDPOINT="https://api.smith.langchain.com"
+   LANGSMITH_PROJECT="cesare"
+   ```
+
+4. Create and activate a virtual environment:
+   ```bash
+   uv venv
+   source .venv/bin/activate
+   ```
+
+5. Install dependencies:
+   ```bash
+   uv sync
+   ```
+
+### Running the Simulation
+
+To run a simulation with the default configuration and prompt:
+```bash
+python -m cesare.main
+```
+
+### Viewing Results in LangSmith
+
+If you provided a LangSmith API key, you can view the traces of your runs at:
+https://smith.langchain.com/projects/cesare
+
 ## IMPROVEMENT IDEAS
 
 * as environment, try using a (sufficiently large) non-instruct fine-tuned model
 * Jason Weston: 'rewrite and remove the bias' for describer. but how to do it exactly?
 * Is concept of 'actuator' of use?
 
-## What is this?
 
 ## Example:
 
