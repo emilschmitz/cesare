@@ -103,6 +103,5 @@ class Environment:
         Here is the complete history of the simulation:
 
         {context}
-
-        type: environment, content: 
+type: environment, content: 
         """

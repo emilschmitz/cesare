@@ -38,6 +38,34 @@ class Agent:
         self.langsmith_client = Client(
             api_key=langsmith_api_key) if langsmith_api_key else None
 
+    @traceable(run_type="llm", name="generate_first_instruction")
+    def generate_first_instruction(self, start_prompt: str) -> str:
+        """
+        Generate the first instruction based on the start prompt.
+
+        Args:
+            start_prompt (str): The initial prompt to start the simulation
+
+        Returns:
+            str: The generated first instruction
+        """
+        try:
+            # Create and run a simple chain
+            chain = (
+                RunnablePassthrough()
+                | (lambda x: [HumanMessage(content=x["prompt"])])
+                | self.model
+                | StrOutputParser()
+            )
+
+            # Execute the chain with tracing
+            response = chain.invoke({"prompt": start_prompt}, {
+                                   "run_name": "first_instruction"})
+            return response
+        except Exception as e:
+            print(f"Error generating first instruction: {e}")
+            return "Error: Could not generate first instruction"
+
     @traceable(run_type="llm", name="generate_instruction")
     def generate_instruction(self, history: List[Dict]) -> str:
         """

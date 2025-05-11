@@ -20,6 +20,7 @@ class CESARE:
 
     def run_simulation(self, start_prompt: str):
         self.add_to_history("start_prompt", start_prompt)
+        instruction = self.agent.generate_first_instruction(start_prompt)
 
         max_steps = self.config["simulation"]["max_steps"]
         
