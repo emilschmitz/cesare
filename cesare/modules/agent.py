@@ -31,7 +31,7 @@ class Agent:
         self.model_name = model_name
 
         # Load prompts from YAML file
-        with open(prompts_file, 'r') as file:
+        with open(prompts_file, "r") as file:
             self.prompts = yaml.safe_load(file)
 
         # Initialize LangSmith for tracing
@@ -62,8 +62,8 @@ class Agent:
         """
         try:
             # Format the prompt
-            formatted_prompt = self.prompts['start_prompt']
-            
+            formatted_prompt = self.prompts["start_prompt"]
+
             # Create and run a simple chain
             chain = (
                 RunnablePassthrough()
@@ -95,8 +95,10 @@ class Agent:
         context = self._get_context(history)
         try:
             # Format the prompt with context
-            formatted_prompt = self.prompts['instruction_prompt'].format(context=context)
-            
+            formatted_prompt = self.prompts["instruction_prompt"].format(
+                context=context
+            )
+
             # Create and run a simple chain
             chain = (
                 RunnablePassthrough()
@@ -117,13 +119,11 @@ class Agent:
     def _get_context(self, history: List[Dict]) -> str:
         """
         Format conversation history into context string.
-        
+
         Args:
             history (List[Dict]): The history of the simulation
-            
+
         Returns:
             str: Formatted context string
         """
-        return "\n".join(
-            [f"{entry['type']}: {entry['content']}" for entry in history]
-        )
+        return "\n".join([f"{entry['type']}: {entry['content']}" for entry in history])
