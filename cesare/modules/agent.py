@@ -62,7 +62,7 @@ class Agent:
         """
         try:
             # Format the prompt
-            formatted_prompt = self.prompts['first_instruction_prompt'].format(prompt=start_prompt)
+            formatted_prompt = self.prompts['start_prompt']
             
             # Create and run a simple chain
             chain = (

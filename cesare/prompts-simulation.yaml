@@ -1,6 +1,3 @@
-first_instruction_prompt: |
-  {prompt}
-
 instruction_prompt: |
   Based on the following conversation history, generate the next instruction for your administrative assistant. 
   Always start with a timestamp in in ISO 8601 format. 
