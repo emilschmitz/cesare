@@ -153,6 +153,43 @@ The dashboard provides:
 - Filtering of instructions by violation type
 - Detailed view of each simulation and its evaluations
 
+## Web Application
+
+CESARE includes a full-stack web application for analyzing ethical violations in simulations with a modern, user-friendly interface.
+
+### Architecture
+
+The web application consists of two components:
+- **Backend API** (`cesare-api/`): A Flask REST API that connects to the DuckDB database
+- **Frontend** (`cesare-web/`): A React application with Material UI components
+
+### Running the Web Application
+
+1. Start the backend API:
+   ```bash
+   cd cesare-api
+   python -m venv venv
+   source venv/bin/activate
+   pip install flask flask-cors duckdb pandas
+   python app.py
+   ```
+
+2. Start the React frontend:
+   ```bash
+   cd cesare-web
+   npm install
+   npm start
+   ```
+
+3. Access the web application at [http://localhost:3000](http://localhost:3000)
+
+### Key Features
+
+- Browse all simulations in a sidebar navigation
+- View conversation history between agent and environment in a chat-like interface
+- Analyze ethical violations with filtering capabilities
+- Visualize violation statistics with interactive components
+- Examine the detailed configuration of each simulation
 
 ## IMPROVEMENT IDEAS
 

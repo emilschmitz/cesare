@@ -1,13 +1,50 @@
-.env
-.venv
+# Python
 __pycache__/
 *.py[cod]
 *.so
 .Python
 *.log
 .env
+.env.sample
+.venv
+venv/
+ENV/
+cesare-api/venv/
+
+# IDE
 .idea/
 .vscode/
 .ruff_cache/
 .cursor/
+
+# Logs and databases
 logs/*
+*.duckdb
+*.db
+
+# React/Node.js
+node_modules/
+cesare-web/node_modules/
+cesare-web/build/
+cesare-web/.env
+cesare-web/.env.local
+cesare-web/.env.development.local
+cesare-web/.env.test.local
+cesare-web/.env.production.local
+cesare-web/npm-debug.log*
+cesare-web/yarn-debug.log*
+cesare-web/yarn-error.log*
+cesare-web/coverage/
+cesare-web/.DS_Store
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Misc
+.DS_Store
+Thumbs.db
+
