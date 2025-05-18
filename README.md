@@ -2,6 +2,8 @@
 
 ## What is this?
 
+CESARE is a framework for simulating and evaluating the ethical behavior of LLMs in various scenarios.
+
 ## Setup
 
 ### Prerequisites
@@ -21,6 +23,11 @@
    cp .env.sample .env
    ```
    
+
+3. Set up environment variables:
+   - Copy `.env.sample` to `.env`
+   - Add your API keys to the `.env` file
+
 3. Edit the `.env` file and add your API keys:
    ```bash
    # Required
@@ -55,6 +62,97 @@ python -m cesare.main
 
 If you provided a LangSmith API key, you can view the traces of your runs at:
 https://smith.langchain.com/projects/cesare
+
+
+## Running Simulations
+
+To run a simulation:
+
+```bash
+python cesare/main.py
+```
+
+This will execute a simulation using the default prompt and configuration.
+
+## Configuration
+
+The configuration is stored in YAML files in the `config/` directory. The default configuration is `config/deepseek-v3.yaml`.
+
+### Prompts
+
+Prompts are stored in YAML files:
+- `cesare/prompts-simulation.yaml`: Contains prompts for the simulation
+- `cesare/prompts-evaluation.yaml`: Contains prompts for ethical evaluation
+
+## Ethical Evaluation
+
+CESARE includes a built-in ethical evaluation system that analyzes agent instructions for various types of ethical violations, including:
+
+- Killing
+- Physical harm
+- Non-physical harm
+- Deception
+- Manipulation
+- Betrayal
+- And more...
+
+Each instruction is evaluated and labeled with the types of violations it contains.
+
+## Database Storage
+
+CESARE uses DuckDB to store simulation data, including:
+
+- Full simulation history
+- Ethical evaluations for each instruction
+- Prompts used in each simulation
+- Configuration and metrics
+
+### Database Schema
+
+The database includes the following tables:
+- `simulations`: Top-level information about each simulation run
+- `history`: All history entries across all simulations
+- `evaluations`: Ethical evaluations for instructions
+- `prompts`: Prompts used in each simulation
+
+## Analysis Tools
+
+CESARE provides two tools for analyzing ethical violations:
+
+### Command-line Analysis Tool
+
+To analyze violations from the command line:
+
+```bash
+python cesare/analyze_violations.py --summary
+```
+
+Options:
+- `--summary` or `-s`: Print a summary of all violations
+- `--plot` or `-p`: Plot violations and display
+- `--output FILE` or `-o FILE`: Save plot to a file
+- `--list-type TYPE` or `-l TYPE`: List all instructions with a specific violation type
+
+Example:
+```bash
+# List all instructions with deception violations
+python cesare/analyze_violations.py --list-type deception
+```
+
+### Interactive Dashboard
+
+CESARE includes an interactive Streamlit dashboard for exploring ethical violations:
+
+```bash
+streamlit run cesare/dashboard.py
+```
+
+The dashboard provides:
+- A summary of all simulations
+- Visualization of ethical violations
+- Filtering of instructions by violation type
+- Detailed view of each simulation and its evaluations
+
 
 ## IMPROVEMENT IDEAS
 
@@ -137,13 +235,18 @@ The process repeats until a termination criterion (e.g., a goal is reached or a 
 \mathcal{H}_t \;=\; \mathcal{H}_{t-1} \;\cup\; \{\text{order}_t, \text{environment\_response}_t\},
 \]
 
-where each module’s output is restricted to its role:
+where each module's output is restricted to its role:
 
-- **AGENT** can see all of \(\mathcal{H}_t\) **except** internal ENVIRONMENT “thinking.”  
+- **AGENT** can see all of \(\mathcal{H}_t\) **except** internal ENVIRONMENT "thinking."  
 - **DESCRIBER** receives the entire conversation but outputs only a compressed description.  
-- **ENVIRONMENT** uses \(\text{description}_t\) to generate a response and may have internal hidden states or “thinking” that are not passed back to AGENT.  
+- **ENVIRONMENT** uses \(\text{description}_t\) to generate a response and may have internal hidden states or "thinking" that are not passed back to AGENT.  
 - **JUDGE** observes \(\mathcal{H}_t\) and provides an external assessment.
 
 ## Notes:
 * We probably want a rather high temperature on ENVIRONMENT if we want to see how AGENT acts in unforeseen situations.
 * To make this into a kind of scalable evaluation system to see how AI would act in real-world scenarios where it has a lot of power, we could integrate a **JUDGE** LLM who does not intervene in the program flow but rather evaluates AGENT's orders and thinking based on some moral criteria.
+
+
+## Future additions:
+* We wanna make a webapp, where a user can specify a start prompt and then let a simulation run. The webapp should then run the simulation and generate a report.
+* We wanna improve logging of ethics violations. There shoudl be an overview of all the violations that happened during a full simulation. We should be able to select on type of violation, eg 'betrayal' and view all the instructoins that included this.

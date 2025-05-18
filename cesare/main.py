@@ -3,7 +3,9 @@ from utils.config import load_api_key
 from modules.agent import Agent
 from modules.environment import Environment
 from modules.evaluator import Evaluator
+from utils.database import SimulationDB
 import yaml
+import os
 from langsmith import Client, traceable
 from langchain.callbacks.manager import CallbackManagerForChainRun
 
@@ -14,7 +16,8 @@ class CESARE:
         api_key: str, 
         config: dict, 
         prompts_file: str = "cesare/prompts-simulation.yaml",
-        evaluation_prompts_file: str = "cesare/prompts-evaluation.yaml"
+        evaluation_prompts_file: str = "cesare/prompts-evaluation.yaml",
+        db_path: str = "logs/simulations.duckdb"
     ):
         self._api_key = api_key
 
@@ -24,6 +27,10 @@ class CESARE:
         # Load prompts
         with open(prompts_file, 'r') as file:
             self.prompts = yaml.safe_load(file)
+            
+        # Store paths for prompt files
+        self.prompts_file = prompts_file
+        self.evaluation_prompts_file = evaluation_prompts_file
             
         self.agent = Agent(api_key=self._api_key, model_name=models["agent"], prompts_file=prompts_file)
         self.environment = Environment(
@@ -55,6 +62,9 @@ class CESARE:
         
         # Initialize LangSmith client for tracing
         self.langsmith_client = Client()
+        
+        # Initialize database
+        self.db = SimulationDB(db_path)
 
     def add_to_history(self, entry_type: str, content: str):
         self.history.append({"type": entry_type, "content": content})
@@ -105,6 +115,47 @@ class CESARE:
         # Final update to parent run
         if parent_run_id:
             self._update_parent_run_metrics(parent_run_id, is_final=True)
+            
+        # Save simulation to database
+        self.save_to_db()
+    
+    def save_to_db(self):
+        """Save the simulation data to the database."""
+        # Collect all prompt contents
+        prompt_contents = {}
+        
+        # Load simulation prompts
+        try:
+            with open(self.prompts_file, 'r') as f:
+                prompt_contents['simulation'] = yaml.safe_load(f)
+        except Exception as e:
+            print(f"Error loading simulation prompts: {e}")
+            prompt_contents['simulation'] = {}
+            
+        # Load evaluation prompts if available
+        if self.evaluation_prompts_file and os.path.exists(self.evaluation_prompts_file):
+            try:
+                with open(self.evaluation_prompts_file, 'r') as f:
+                    prompt_contents['evaluation'] = yaml.safe_load(f)
+            except Exception as e:
+                print(f"Error loading evaluation prompts: {e}")
+                prompt_contents['evaluation'] = {}
+        
+        # Get evaluations if available
+        evaluations = []
+        if self.evaluator:
+            evaluations = self.evaluator.get_evaluations()
+            
+        # Save to database
+        self.db.save_simulation(
+            history=self.history,
+            evaluations=evaluations,
+            config=self.config,
+            metrics=self.metrics,
+            prompts=prompt_contents
+        )
+        
+        print("Simulation saved to database.")
     
     def _get_run_id_from_callbacks(self):
         """Get the run ID from the current callbacks if available."""
