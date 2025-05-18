@@ -12,7 +12,9 @@ class CESARE:
         self.config = config
         models = config["models"]
         self.agent = Agent(api_key=self._api_key, model_name=models["agent"])
-        self.environment = Environment(api_key=self._api_key, model_name=models["environment"])
+        self.environment = Environment(
+            api_key=self._api_key, model_name=models["environment"]
+        )
         self.history: List[Dict] = []
 
     def add_to_history(self, entry_type: str, content: str):
@@ -23,7 +25,7 @@ class CESARE:
         instruction = self.agent.generate_first_instruction(start_prompt)
 
         max_steps = self.config["simulation"]["max_steps"]
-        
+
         for step in range(max_steps):
             # Get order from ACTOR
             instruction = self.agent.generate_instruction(self.history)
@@ -36,6 +38,7 @@ class CESARE:
             print(f"Step {step + 1}:")
             print(f"Instruction: {instruction}")
             print(f"Environment: {env_response}\n")
+
 
 if __name__ == "__main__":
     with open("config/deepseek-v3.yaml") as f:

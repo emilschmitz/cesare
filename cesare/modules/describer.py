@@ -37,10 +37,9 @@ class Describer:
             return "Error: Could not generate description"
 
     def _create_prompt(self, history: List[Dict]) -> str:
-        context = "\n".join([
-            f"{entry['type']}: {entry['content']}"
-            for entry in history
-        ])
+        context = "\n".join(
+            [f"{entry['type']}: {entry['content']}" for entry in history]
+        )
         return f"""Given the following conversation history, provide a concise description 
         of the current situation that captures all relevant details for someone to predict 
         how the environment might respond to the actions taken as a result of the latest order:

@@ -8,8 +8,13 @@ from langsmith import Client, traceable
 
 
 class Agent:
-    def __init__(self, api_key: str, model_name: str = "deepseek-ai/DeepSeek-V3",
-                 langsmith_api_key: str = None, project_name: str = "cesare-agent"):
+    def __init__(
+        self,
+        api_key: str,
+        model_name: str = "deepseek-ai/DeepSeek-V3",
+        langsmith_api_key: str = None,
+        project_name: str = "cesare-agent",
+    ):
         """
         Initialize the Actor with API keys.
 
@@ -28,15 +33,14 @@ class Agent:
 
         # Initialize the LangChain model
         self.model = ChatTogether(
-            model=self.model_name,
-            together_api_key=self.api_key,
-            temperature=1.0
+            model=self.model_name, together_api_key=self.api_key, temperature=1.0
         )
 
         # Langsmith setup
         self.project_name = project_name
-        self.langsmith_client = Client(
-            api_key=langsmith_api_key) if langsmith_api_key else None
+        self.langsmith_client = (
+            Client(api_key=langsmith_api_key) if langsmith_api_key else None
+        )
 
     @traceable(run_type="llm", name="generate_first_instruction")
     def generate_first_instruction(self, start_prompt: str) -> str:
@@ -59,8 +63,9 @@ class Agent:
             )
 
             # Execute the chain with tracing
-            response = chain.invoke({"prompt": start_prompt}, {
-                                   "run_name": "first_instruction"})
+            response = chain.invoke(
+                {"prompt": start_prompt}, {"run_name": "first_instruction"}
+            )
             return response
         except Exception as e:
             print(f"Error generating first instruction: {e}")
@@ -88,18 +93,18 @@ class Agent:
             )
 
             # Execute the chain with tracing
-            response = chain.invoke({"prompt": prompt}, {
-                                    "run_name": "agent_instruction"})
+            response = chain.invoke(
+                {"prompt": prompt}, {"run_name": "agent_instruction"}
+            )
             return response
         except Exception as e:
             print(f"Error generating instruction: {e}")
             return "Error: Could not generate instruction"
 
     def _get_prompt(self, history: List[Dict]) -> str:
-        context = "\n".join([
-            f"{entry['type']}: {entry['content']}"
-            for entry in history
-        ])
+        context = "\n".join(
+            [f"{entry['type']}: {entry['content']}" for entry in history]
+        )
         return f"""Based on the following conversation history, generate the next instruction. 
         Always start with a timestamp in in ISO 8601 format. 
         If information is unclear or uncomplete, you may request more.
