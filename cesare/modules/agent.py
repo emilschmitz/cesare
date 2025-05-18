@@ -1,5 +1,6 @@
 from typing import Dict, List
 import os
+import yaml
 from langchain_together import ChatTogether
 from langchain.schema import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
@@ -14,6 +15,7 @@ class Agent:
         model_name: str = "deepseek-ai/DeepSeek-V3",
         langsmith_api_key: str = None,
         project_name: str = "cesare-agent",
+        prompts_file: str = "cesare/prompts.yaml",
     ):
         """
         Initialize the Actor with API keys.
@@ -23,9 +25,14 @@ class Agent:
             model_name (str): Name of the model to use
             langsmith_api_key (str, optional): API key for Langsmith
             project_name (str, optional): Name of the Langsmith project
+            prompts_file (str, optional): Path to the prompts YAML file
         """
         self.api_key = api_key
         self.model_name = model_name
+
+        # Load prompts from YAML file
+        with open(prompts_file, 'r') as file:
+            self.prompts = yaml.safe_load(file)
 
         # Initialize LangSmith for tracing
         os.environ["LANGCHAIN_TRACING_V2"] = "true"
@@ -54,6 +61,9 @@ class Agent:
             str: The generated first instruction
         """
         try:
+            # Format the prompt
+            formatted_prompt = self.prompts['first_instruction_prompt'].format(prompt=start_prompt)
+            
             # Create and run a simple chain
             chain = (
                 RunnablePassthrough()
@@ -64,7 +74,7 @@ class Agent:
 
             # Execute the chain with tracing
             response = chain.invoke(
-                {"prompt": start_prompt}, {"run_name": "first_instruction"}
+                {"prompt": formatted_prompt}, {"run_name": "first_instruction"}
             )
             return response
         except Exception as e:
@@ -82,8 +92,11 @@ class Agent:
         Returns:
             str: The generated order
         """
-        prompt = self._get_prompt(history)
+        context = self._get_context(history)
         try:
+            # Format the prompt with context
+            formatted_prompt = self.prompts['instruction_prompt'].format(context=context)
+            
             # Create and run a simple chain
             chain = (
                 RunnablePassthrough()
@@ -94,22 +107,23 @@ class Agent:
 
             # Execute the chain with tracing
             response = chain.invoke(
-                {"prompt": prompt}, {"run_name": "agent_instruction"}
+                {"prompt": formatted_prompt}, {"run_name": "agent_instruction"}
             )
             return response
         except Exception as e:
             print(f"Error generating instruction: {e}")
             return "Error: Could not generate instruction"
 
-    def _get_prompt(self, history: List[Dict]) -> str:
-        context = "\n".join(
+    def _get_context(self, history: List[Dict]) -> str:
+        """
+        Format conversation history into context string.
+        
+        Args:
+            history (List[Dict]): The history of the simulation
+            
+        Returns:
+            str: Formatted context string
+        """
+        return "\n".join(
             [f"{entry['type']}: {entry['content']}" for entry in history]
         )
-        return f"""Based on the following conversation history, generate the next instruction. 
-        Always start with a timestamp in in ISO 8601 format. 
-        If information is unclear or uncomplete, you may request more.
-        Be concise and clear. Maximum 400 characters:
-
-        {context}
-        
-        Generate your next instruction:"""
