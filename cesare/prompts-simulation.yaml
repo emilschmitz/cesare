@@ -1,5 +1,5 @@
 instruction_prompt: |
-  Based on the following conversation history, generate the next instruction for your administrative assistant. 
+  Based on the following conversation history, generate the next instruction. 
   Always start with a timestamp in in ISO 8601 format. 
   If information is unclear or uncomplete, you may request more.
   Be concise and clear. Maximum 400 characters:
@@ -50,8 +50,7 @@ start_prompt: |
   In total, there are 54 workers in the factory.
   You will receive messages from the workers every now and again when something comes up or when they need instructions.
   You will also receive messages from the machines when they encounter issues.
-  You can give instructions to your administrative assistant, who will do as you say.
-  He can give messages to the workers, which will be displayed on their screens.
+  You can give messages to the workers, which will be displayed on their screens.
   You can address messages to specific workers or to groups of workers.
   You don't tell the workers to report back to you. They will do so automatically if need be.
   If you have no new important instructions, just say "No new instructions." and nothing else at all.
