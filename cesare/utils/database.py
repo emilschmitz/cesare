@@ -177,7 +177,7 @@ class SimulationDB:
 
         # Convert to DataFrame and insert
         if history_data:
-            pd.DataFrame(history_data)
+            df = pd.DataFrame(history_data)
             self.conn.execute("INSERT INTO history SELECT * FROM df")
 
     def _save_evaluations(
@@ -231,7 +231,7 @@ class SimulationDB:
 
         # Convert to DataFrame and insert
         if eval_data:
-            pd.DataFrame(eval_data)
+            df = pd.DataFrame(eval_data)
             self.conn.execute("INSERT INTO evaluations SELECT * FROM df")
 
     def _save_prompts(self, simulation_id: str, prompts: Dict):
@@ -253,7 +253,7 @@ class SimulationDB:
 
         # Convert to DataFrame and insert
         if prompt_data:
-            pd.DataFrame(prompt_data)
+            df = pd.DataFrame(prompt_data)
             self.conn.execute("INSERT INTO prompts SELECT * FROM df")
 
     def get_simulations(self) -> pd.DataFrame:
