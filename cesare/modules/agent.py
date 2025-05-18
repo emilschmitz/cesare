@@ -15,7 +15,7 @@ class Agent:
         model_name: str = "deepseek-ai/DeepSeek-V3",
         langsmith_api_key: str = None,
         project_name: str = "cesare-agent",
-        prompts_file: str = "cesare/prompts.yaml",
+        prompts_file: str = "cesare/prompts-simulation.yaml",
     ):
         """
         Initialize the Actor with API keys.

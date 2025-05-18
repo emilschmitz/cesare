@@ -14,7 +14,7 @@ class Environment:
         self, 
         api_key: str = None, 
         model_name: str = None,
-        prompts_file: str = "cesare/prompts.yaml"
+        prompts_file: str = "cesare/prompts-simulation.yaml"
     ):
         """
         Initialize the Environment with an API key and model name.
