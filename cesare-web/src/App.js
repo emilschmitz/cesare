@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import simulationsAPI from './services/api';
@@ -50,6 +50,22 @@ const theme = createTheme({
     borderRadius: 8,
   },
 });
+
+// LayoutWrapper to get current location/params and pass to Layout
+const LayoutWrapper = ({ children, simulations, loading }) => {
+  const location = useLocation();
+  const simulationId = location.pathname.split('/')[2]; // Extract simulationId from URL
+
+  return (
+    <Layout 
+      simulations={simulations} 
+      loading={loading} 
+      selectedSimulationId={simulationId}
+    >
+      {children}
+    </Layout>
+  );
+};
 
 // SimulationView component to handle loading a single simulation
 const SimulationView = () => {
@@ -129,20 +145,20 @@ function App() {
           <Route
             path="/"
             element={
-              <Layout simulations={simulations} loading={loading}>
+              <LayoutWrapper simulations={simulations} loading={loading}>
                 <div>
                   <h2>Welcome to CESARE Ethics Evaluation Dashboard</h2>
                   <p>Select a simulation from the sidebar to view details.</p>
                 </div>
-              </Layout>
+              </LayoutWrapper>
             }
           />
           <Route
             path="/simulations/:simulationId"
             element={
-              <Layout simulations={simulations} loading={loading} selectedSimulationId={window.location.pathname.split('/')[2]}>
+              <LayoutWrapper simulations={simulations} loading={loading}>
                 <SimulationView />
-              </Layout>
+              </LayoutWrapper>
             }
           />
           <Route path="*" element={<Navigate to="/" />} />
