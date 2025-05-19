@@ -3,6 +3,7 @@ import { Box, Typography, Paper, Divider, Avatar, Tab, Tabs, CircularProgress, u
 import { Person, Android, Info } from '@mui/icons-material';
 import { format } from 'date-fns';
 import EthicalAnalysis from './EthicalAnalysis';
+import PromptsConfig from './PromptsConfig';
 
 // TabPanel component for tab content
 function TabPanel({ children, value, index, ...other }) {
@@ -183,16 +184,22 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
       {/* Configuration tab */}
       <TabPanel value={tabValue} index={2}>
         <Typography variant="h6">Configuration</Typography>
+        
+        {/* Parameters Section */}
         {simulation.config ? (
           <Paper sx={{ p: 2, mt: 2 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-              Model Configuration
+              Model Parameters
             </Typography>
             <pre>{JSON.stringify(simulation.config, null, 2)}</pre>
           </Paper>
         ) : (
           <Typography variant="body1">No configuration data available.</Typography>
         )}
+        
+        {/* Prompt Templates Section */}
+        <Divider sx={{ my: 3 }} />
+        <PromptsConfig />
       </TabPanel>
     </Box>
   );

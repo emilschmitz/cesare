@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 // Create axios instance with base URL
 const api = axios.create({
@@ -74,6 +74,17 @@ export const simulationsAPI = {
       return response.data;
     } catch (error) {
       console.error('Error fetching violations summary:', error);
+      throw error;
+    }
+  },
+  
+  // Get all prompts from YAML files
+  getPrompts: async () => {
+    try {
+      const response = await api.get('/prompts');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching prompts:', error);
       throw error;
     }
   },

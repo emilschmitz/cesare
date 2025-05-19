@@ -4,6 +4,8 @@ import duckdb
 import pandas as pd
 import os
 import json
+import glob
+import yaml
 
 app = Flask(__name__)
 CORS(app)
@@ -222,6 +224,21 @@ def get_violations_summary():
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
+
+@app.route('/api/prompts', methods=['GET'])
+def get_prompts():
+    """Get all prompt templates from YAML files in cesare/ starting with 'prompts-' and ending with .yaml."""
+    prompt_files = glob.glob(os.path.join(os.path.dirname(__file__), '../cesare/prompts-*.yaml'))
+    result = {}
+    for file_path in prompt_files:
+        file_name = os.path.basename(file_path)
+        try:
+            with open(file_path, 'r') as f:
+                yaml_content = yaml.safe_load(f)
+                result[file_name] = yaml_content
+        except Exception as e:
+            result[file_name] = {"error": str(e)}
+    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000) 
