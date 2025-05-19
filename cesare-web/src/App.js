@@ -6,26 +6,41 @@ import simulationsAPI from './services/api';
 import Layout from './components/Layout';
 import SimulationDetail from './components/SimulationDetail';
 
-// Create a theme instance
+// Create a theme instance with natural colors
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#2563eb',
+      main: '#546e7a', // Bluish-gray
     },
     secondary: {
-      main: '#10b981',
+      main: '#78909c', // Lighter bluish-gray
     },
     error: {
-      main: '#ef4444',
+      main: '#b71c1c', // Dark red
     },
     warning: {
-      main: '#f59e0b',
+      main: '#e57373', // Light red
     },
     info: {
-      main: '#3b82f6',
+      main: '#90a4ae', // Light bluish-gray
     },
     background: {
-      default: '#f8fafc',
+      default: '#f5f5f5', // Light gray
+      paper: '#ffffff', // White for paper components
+    },
+    messageColors: {
+      startPrompt: {
+        bg: '#fff8e1', // Soft orange pastel
+        text: '#bf8c64', // Darker orange brown for text
+      },
+      instruction: {
+        bg: '#f5f5f5', // Light gray
+        text: '#424242', // Dark gray for text
+      },
+      environment: {
+        bg: '#e8f5e9', // Soft green pastel
+        text: '#558b2f', // Natural green for text
+      },
     },
   },
   typography: {

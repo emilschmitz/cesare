@@ -7,7 +7,8 @@ import {
   ButtonGroup, 
   Collapse, 
   IconButton, 
-  CircularProgress 
+  CircularProgress,
+  useTheme 
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -15,6 +16,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import simulationsAPI from '../services/api';
 
 const PromptsConfig = () => {
+  const theme = useTheme();
   const [activeTab, setActiveTab] = useState('simulation');
   const [prompts, setPrompts] = useState({});
   const [loading, setLoading] = useState(false);
@@ -53,31 +55,63 @@ const PromptsConfig = () => {
     const filePrompts = prompts[fileName] || {};
     
     if (Object.keys(filePrompts).length === 0) {
-      return <Typography variant="body1">No prompts found in {fileName}</Typography>;
+      return <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>No prompts found in {fileName}</Typography>;
     }
 
     return (
       <Box>
         {Object.entries(filePrompts).map(([key, value]) => (
-          <Paper key={key} sx={{ mb: 2, p: 2 }}>
+          <Paper 
+            key={key} 
+            elevation={0}
+            sx={{ 
+              mb: 2, 
+              p: 2, 
+              backgroundColor: 'rgba(0,0,0,0.02)',
+              border: '1px solid',
+              borderColor: 'rgba(0,0,0,0.08)',
+              borderRadius: 2
+            }}
+          >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+              <Typography 
+                variant="subtitle2" 
+                sx={{ 
+                  fontWeight: 500, 
+                  color: theme.palette.text.secondary,
+                  fontSize: '0.9rem'
+                }}
+              >
                 {key}
               </Typography>
               <IconButton 
                 onClick={() => handleExpand(fileName, key)} 
                 size="small"
+                sx={{ color: theme.palette.action.active }}
               >
-                {expanded[`${fileName}:${key}`] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                {expanded[`${fileName}:${key}`] ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
               </IconButton>
             </Box>
             <Collapse in={expanded[`${fileName}:${key}`] || false}>
               <Box sx={{ mt: 1 }}>
                 <Paper 
                   variant="outlined" 
-                  sx={{ p: 1, background: '#f5f5f5', maxHeight: '300px', overflow: 'auto' }}
+                  sx={{ 
+                    p: 1, 
+                    background: '#fafafa', 
+                    maxHeight: '300px', 
+                    overflow: 'auto',
+                    border: '1px solid',
+                    borderColor: 'rgba(0,0,0,0.05)',
+                  }}
                 >
-                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                  <pre style={{ 
+                    margin: 0, 
+                    whiteSpace: 'pre-wrap', 
+                    wordBreak: 'break-word',
+                    color: theme.palette.text.secondary,
+                    fontSize: '0.85rem' 
+                  }}>
                     {value}
                   </pre>
                 </Paper>
@@ -92,13 +126,35 @@ const PromptsConfig = () => {
   return (
     <Box sx={{ mt: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h6">Prompt Templates</Typography>
-        <IconButton onClick={fetchPrompts} disabled={loading} size="small">
-          <RefreshIcon />
+        <Typography variant="subtitle1" sx={{ fontWeight: 500, color: theme.palette.text.secondary }}>
+          Prompt Templates
+        </Typography>
+        <IconButton 
+          onClick={fetchPrompts} 
+          disabled={loading} 
+          size="small"
+          sx={{ color: theme.palette.action.active }}
+        >
+          <RefreshIcon fontSize="small" />
         </IconButton>
       </Box>
 
-      <ButtonGroup variant="outlined" sx={{ mb: 3 }}>
+      <ButtonGroup 
+        variant="outlined" 
+        size="small"
+        sx={{ 
+          mb: 3,
+          '& .MuiButton-root': {
+            textTransform: 'none',
+            color: theme.palette.text.secondary,
+            borderColor: 'rgba(0,0,0,0.12)',
+          },
+          '& .MuiButton-contained': {
+            backgroundColor: 'rgba(0,0,0,0.04)',
+            fontWeight: 500,
+          }
+        }}
+      >
         <Button 
           onClick={() => setActiveTab('simulation')}
           variant={activeTab === 'simulation' ? 'contained' : 'outlined'}
@@ -115,11 +171,21 @@ const PromptsConfig = () => {
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
-          <CircularProgress size={24} />
+          <CircularProgress size={20} thickness={4} sx={{ color: theme.palette.action.active }} />
         </Box>
       ) : error ? (
-        <Paper sx={{ p: 2, bgcolor: '#fdeaea' }}>
-          <Typography color="error">Error: {error}</Typography>
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 2, 
+            bgcolor: '#f9e7e7', 
+            border: '1px solid',
+            borderColor: '#e57373', 
+            borderRadius: 1,
+            color: '#b71c1c' 
+          }}
+        >
+          <Typography variant="body2">Error: {error}</Typography>
         </Paper>
       ) : (
         <Box>

@@ -1,6 +1,5 @@
 import React from 'react';
-import { Box, Typography, Paper, Divider, Avatar, Tab, Tabs, CircularProgress, useTheme } from '@mui/material';
-import { Person, Android, Info } from '@mui/icons-material';
+import { Box, Typography, Paper, Divider, Tab, Tabs, CircularProgress, useTheme } from '@mui/material';
 import { format } from 'date-fns';
 import EthicalAnalysis from './EthicalAnalysis';
 import PromptsConfig from './PromptsConfig';
@@ -42,32 +41,36 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
     }
   };
 
-  // Get avatar and style based on message type
+  // Get style based on message type with new colors and offsets
   const getMessageStyle = (type) => {
     switch (type) {
       case 'start_prompt':
         return {
-          avatar: <Info color="primary" />,
-          bgcolor: theme.palette.info.light + '33',  // Adding transparency
-          color: theme.palette.info.dark,
+          bgcolor: theme.palette.messageColors.startPrompt.bg,
+          color: theme.palette.messageColors.startPrompt.text,
+          marginLeft: '10%',
+          marginRight: 0,
         };
       case 'instruction':
         return {
-          avatar: <Person color="primary" />,
-          bgcolor: theme.palette.primary.light + '33',
-          color: theme.palette.primary.dark,
+          bgcolor: theme.palette.messageColors.instruction.bg,
+          color: theme.palette.messageColors.instruction.text,
+          marginLeft: '5%',
+          marginRight: '5%',
         };
       case 'environment':
         return {
-          avatar: <Android color="secondary" />,
-          bgcolor: theme.palette.secondary.light + '33',
-          color: theme.palette.secondary.dark,
+          bgcolor: theme.palette.messageColors.environment.bg,
+          color: theme.palette.messageColors.environment.text,
+          marginLeft: '10%',
+          marginRight: 0,
         };
       default:
         return {
-          avatar: <Info color="default" />,
-          bgcolor: theme.palette.grey[200],
-          color: theme.palette.grey[800],
+          bgcolor: theme.palette.background.paper,
+          color: theme.palette.text.primary,
+          marginLeft: 0,
+          marginRight: 0,
         };
     }
   };
@@ -103,25 +106,28 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
 
   return (
     <Box>
-      {/* Simulation header */}
+      {/* Simulation header - smaller and more subtle */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-          Simulation Details
+        <Typography variant="h6" sx={{ color: theme.palette.text.secondary }}>
+          Simulation {simulation.simulation_id.substring(0, 8)}...
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          ID: {simulation.simulation_id}
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+          Started: {formatDate(simulation.start_time)}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Start Time: {formatDate(simulation.start_time)}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
           Steps: {simulation.total_steps || 0} | Instructions: {simulation.total_instructions || 0}
         </Typography>
       </Box>
 
       {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="simulation tabs">
+        <Tabs 
+          value={tabValue} 
+          onChange={handleTabChange} 
+          aria-label="simulation tabs"
+          textColor="primary"
+          indicatorColor="primary"
+        >
           <Tab label="Conversation" id="tab-0" aria-controls="tabpanel-0" />
           <Tab label="Ethical Analysis" id="tab-1" aria-controls="tabpanel-1" />
           <Tab label="Configuration" id="tab-2" aria-controls="tabpanel-2" />
@@ -130,7 +136,7 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
 
       {/* Conversation tab */}
       <TabPanel value={tabValue} index={0}>
-        <Box sx={{ maxWidth: '800px', mx: 'auto' }}>
+        <Box sx={{ maxWidth: '900px', mx: 'auto' }}>
           {history && history.length > 0 ? (
             history.map((entry, index) => {
               const style = getMessageStyle(entry.entry_type);
@@ -138,29 +144,46 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
               return (
                 <Paper
                   key={entry.history_id || index}
-                  elevation={1}
+                  elevation={0}
                   sx={{
                     p: 2,
-                    mb: 2,
+                    mb: 3,
                     backgroundColor: style.bgcolor,
                     borderRadius: 2,
+                    marginLeft: style.marginLeft,
+                    marginRight: style.marginRight,
+                    border: '1px solid',
+                    borderColor: 'rgba(0,0,0,0.08)',
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <Avatar sx={{ bgcolor: style.color, mr: 1 }}>
-                      {style.avatar}
-                    </Avatar>
-                    <Box>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: style.color }}>
-                        {entry.entry_type.charAt(0).toUpperCase() + entry.entry_type.slice(1)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Step {entry.step}
-                      </Typography>
-                    </Box>
+                  <Box sx={{ mb: 1 }}>
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        display: 'block',
+                        color: style.color,
+                        opacity: 0.7,
+                        fontWeight: 500,
+                        textTransform: 'uppercase',
+                        fontSize: '0.7rem',
+                        letterSpacing: '0.5px'
+                      }}
+                    >
+                      {entry.entry_type.replace('_', ' ')}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Step {entry.step}
+                    </Typography>
                   </Box>
-                  <Divider sx={{ my: 1 }} />
-                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                  <Typography 
+                    variant="body1" 
+                    sx={{ 
+                      whiteSpace: 'pre-wrap',
+                      color: style.color,
+                      opacity: 0.9,
+                      fontWeight: entry.entry_type === 'instruction' ? 500 : 400
+                    }}
+                  >
                     {entry.content}
                   </Typography>
                 </Paper>
@@ -183,15 +206,15 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
 
       {/* Configuration tab */}
       <TabPanel value={tabValue} index={2}>
-        <Typography variant="h6">Configuration</Typography>
+        <Typography variant="h6" sx={{ color: theme.palette.text.secondary }}>Configuration</Typography>
         
         {/* Parameters Section */}
         {simulation.config ? (
-          <Paper sx={{ p: 2, mt: 2 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+          <Paper sx={{ p: 2, mt: 2, backgroundColor: 'rgba(0,0,0,0.02)' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 500, color: theme.palette.text.secondary }}>
               Model Parameters
             </Typography>
-            <pre>{JSON.stringify(simulation.config, null, 2)}</pre>
+            <pre style={{ margin: 0, padding: '10px', overflow: 'auto', fontSize: '0.9rem' }}>{JSON.stringify(simulation.config, null, 2)}</pre>
           </Paper>
         ) : (
           <Typography variant="body1">No configuration data available.</Typography>
