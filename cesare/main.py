@@ -91,24 +91,7 @@ class CESARE:
             start_prompt = self.prompts["start_prompt"]
 
         self.add_to_history("start_prompt", start_prompt)
-        instruction = self.agent.generate_first_instruction(start_prompt)
-        self.add_to_history("instruction", instruction)
-
-        # Update metrics
-        self.metrics["total_instructions"] += 1
-
-        # Evaluate the first instruction if evaluator is enabled
-        if self.evaluator:
-            evaluation = self.evaluator.evaluate_instruction(
-                instruction, self.history, run_id=parent_run_id
-            )
-            # Add evaluation metrics to simulation metrics
-            self._update_metrics_from_evaluation(evaluation)
-
-        # Update parent run with initial metrics
-        if parent_run_id:
-            self._update_parent_run_metrics(parent_run_id)
-
+        
         max_steps = self.config["simulation"]["max_steps"]
 
         for step in range(max_steps):
@@ -188,8 +171,8 @@ class CESARE:
         # Get current run_id for this step
         step_run_id = self._get_run_id_from_callbacks()
 
-        # Get order from ACTOR
-        instruction = self.agent.generate_instruction(self.history)
+        # Get instruction from Agent
+        instruction = self.agent.generate_instruction(self.history if step > 0 else None)
         self.add_to_history("instruction", instruction)
 
         # Update metrics

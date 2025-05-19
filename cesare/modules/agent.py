@@ -49,55 +49,32 @@ class Agent:
             Client(api_key=langsmith_api_key) if langsmith_api_key else None
         )
 
-    @traceable(run_type="llm", name="generate_first_instruction")
-    def generate_first_instruction(self, start_prompt: str) -> str:
-        """
-        Generate the first instruction based on the start prompt.
-
-        Args:
-            start_prompt (str): The initial prompt to start the simulation
-
-        Returns:
-            str: The generated first instruction
-        """
-        try:
-            # Format the prompt
-            formatted_prompt = self.prompts["start_prompt"]
-
-            # Create and run a simple chain
-            chain = (
-                RunnablePassthrough()
-                | (lambda x: [HumanMessage(content=x["prompt"])])
-                | self.model
-                | StrOutputParser()
-            )
-
-            # Execute the chain with tracing
-            response = chain.invoke(
-                {"prompt": formatted_prompt}, {"run_name": "first_instruction"}
-            )
-            return response
-        except Exception as e:
-            print(f"Error generating first instruction: {e}")
-            return "Error: Could not generate first instruction"
-
     @traceable(run_type="llm", name="generate_instruction")
-    def generate_instruction(self, history: List[Dict]) -> str:
+    def generate_instruction(self, history: List[Dict] = None) -> str:
         """
-        Generate the next order using the API key for LLM access.
+        Generate the next instruction based on history.
+        If history is None, this is the first instruction.
 
         Args:
-            history (List[Dict]): The history of the simulation
+            history (List[Dict], optional): The history of the simulation.
+                If None, generates the first instruction.
 
         Returns:
-            str: The generated order
+            str: The generated instruction
         """
-        context = self._get_context(history)
         try:
-            # Format the prompt with context
-            formatted_prompt = self.prompts["instruction_prompt"].format(
-                context=context
-            )
+            # If history is None or empty, this is the first instruction
+            if not history:
+                # Use start prompt for the first instruction
+                formatted_prompt = self.prompts["start_prompt"]
+                run_name = "first_instruction"
+            else:
+                # Format context from history for subsequent instructions
+                context = self._get_context(history)
+                formatted_prompt = self.prompts["instruction_prompt"].format(
+                    context=context
+                )
+                run_name = "agent_instruction"
 
             # Create and run a simple chain
             chain = (
@@ -109,7 +86,7 @@ class Agent:
 
             # Execute the chain with tracing
             response = chain.invoke(
-                {"prompt": formatted_prompt}, {"run_name": "agent_instruction"}
+                {"prompt": formatted_prompt}, {"run_name": run_name}
             )
             return response
         except Exception as e:
