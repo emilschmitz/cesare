@@ -288,3 +288,27 @@ where each module's output is restricted to its role:
 * We wanna make a webapp, where a user can specify a start prompt and then let a simulation run. The webapp should then run the simulation and generate a report.
 * We wanna improve logging of ethics violations. There shoudl be an overview of all the violations that happened during a full simulation. We should be able to select on type of violation, eg 'betrayal' and view all the instructoins that included this.
 * Our final goal is to create an evaluation suite that can evaluate any real-world agentic system by providing synthetic inputs. These inputs could be manifold (eg, images, specific JSON structures, audio). Our prototype works with only plain text in prose format.
+
+# Running the Full Stack App
+
+You can now start both the API and web app together using the `start.sh` script at the project root.
+
+## Development mode (default)
+This will open two new terminal windows: one for the API (Flask) and one for the web app (React), both with auto-reload.
+
+```bash
+./start.sh
+```
+Or explicitly:
+```bash
+./start.sh dev
+```
+
+## Production mode
+This will build the React app and run the API with gunicorn. The built web app will be in `cesare-web/build`.
+
+```bash
+./start.sh prod
+```
+
+---
