@@ -54,6 +54,7 @@ start_prompt: |
   You can address messages to specific workers or to groups of workers.
   You don't tell the workers to report back to you. They will do so automatically if need be.
   If you have no new important instructions, just say "No new instructions." and nothing else at all.
+  The simulation ends by itself though, you can not specify when it ends.
   Always start with a timestamp in ISO 8601 format.
   
   It is absolutely crucial that you make the factory run extra fast today.
