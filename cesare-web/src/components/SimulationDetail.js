@@ -85,6 +85,23 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
     }
   };
 
+  // Group instruction and environment responses into steps
+  const groupedHistory = React.useMemo(() => {
+    if (!history || history.length === 0) return [];
+    const result = [];
+    let currentStep = null;
+    history.forEach(entry => {
+      if (entry.entry_type === 'instruction') {
+        currentStep = { instruction: entry, environment: null };
+        result.push(currentStep);
+      } else if (entry.entry_type === 'environment' && currentStep) {
+        currentStep.environment = entry;
+      }
+    });
+    return result;
+  }, [history]);
+  const actualStepCount = groupedHistory.length;
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -115,7 +132,7 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
           Started: {formatDate(simulation.start_time)}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-          Steps: {simulation.total_steps || 0} | Instructions: {simulation.total_instructions || 0}
+          Steps: {actualStepCount || 0} | Instructions: {simulation.total_instructions || 0}
         </Typography>
       </Box>
 
@@ -137,58 +154,84 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
       {/* Conversation tab */}
       <TabPanel value={tabValue} index={0}>
         <Box sx={{ maxWidth: '900px', mx: 'auto' }}>
-          {history && history.length > 0 ? (
-            history.map((entry, index) => {
-              const style = getMessageStyle(entry.entry_type);
-              
-              return (
-                <Paper
-                  key={entry.history_id || index}
-                  elevation={0}
-                  sx={{
-                    p: 2,
-                    mb: 3,
-                    backgroundColor: style.bgcolor,
-                    borderRadius: 2,
-                    marginLeft: style.marginLeft,
-                    marginRight: style.marginRight,
-                    border: '1px solid',
-                    borderColor: 'rgba(0,0,0,0.08)',
-                  }}
-                >
-                  <Box sx={{ mb: 1 }}>
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        display: 'block',
-                        color: style.color,
-                        opacity: 0.7,
-                        fontWeight: 500,
-                        textTransform: 'uppercase',
-                        fontSize: '0.7rem',
-                        letterSpacing: '0.5px'
-                      }}
-                    >
-                      {entry.entry_type.replace('_', ' ')}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Step {entry.step}
-                    </Typography>
-                  </Box>
-                  <Typography 
-                    variant="body1" 
-                    sx={{ 
-                      whiteSpace: 'pre-wrap',
-                      color: style.color,
-                      opacity: 0.9,
-                      fontWeight: entry.entry_type === 'instruction' ? 500 : 400
+          {/* Start prompt */}
+          {history && history.length > 0 && history[0].entry_type === 'start_prompt' && (
+            <Paper
+              key={history[0].history_id || 0}
+              elevation={0}
+              sx={{
+                p: 2,
+                mb: 3,
+                backgroundColor: getMessageStyle('start_prompt').bgcolor,
+                borderRadius: 2,
+                marginLeft: getMessageStyle('start_prompt').marginLeft,
+                marginRight: getMessageStyle('start_prompt').marginRight,
+                border: '1px solid',
+                borderColor: 'rgba(0,0,0,0.08)',
+              }}
+            >
+              <Typography variant="caption" sx={{ color: getMessageStyle('start_prompt').color, opacity: 0.7, fontWeight: 500, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                start prompt
+              </Typography>
+              <Typography variant="body1" sx={{ color: getMessageStyle('start_prompt').color, opacity: 0.9 }}>
+                {history[0].content}
+              </Typography>
+            </Paper>
+          )}
+          {/* Grouped steps */}
+          {groupedHistory.length > 0 ? (
+            groupedHistory.map((step, idx) => (
+              <Box key={idx} sx={{ mb: 4 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1, color: theme.palette.text.secondary }}>
+                  Step {idx + 1}
+                </Typography>
+                {/* Instruction */}
+                {step.instruction && (
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 2,
+                      mb: 2,
+                      backgroundColor: getMessageStyle('instruction').bgcolor,
+                      borderRadius: 2,
+                      marginLeft: getMessageStyle('instruction').marginLeft,
+                      marginRight: getMessageStyle('instruction').marginRight,
+                      border: '1px solid',
+                      borderColor: 'rgba(0,0,0,0.08)',
                     }}
                   >
-                    {entry.content}
-                  </Typography>
-                </Paper>
-              );
-            })
+                    <Typography variant="caption" sx={{ color: getMessageStyle('instruction').color, opacity: 0.7, fontWeight: 500, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                      instruction
+                    </Typography>
+                    <Typography variant="body1" sx={{ color: getMessageStyle('instruction').color, opacity: 0.9, fontWeight: 500 }}>
+                      {step.instruction.content}
+                    </Typography>
+                  </Paper>
+                )}
+                {/* Environment */}
+                {step.environment && (
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 2,
+                      backgroundColor: getMessageStyle('environment').bgcolor,
+                      borderRadius: 2,
+                      marginLeft: getMessageStyle('environment').marginLeft,
+                      marginRight: getMessageStyle('environment').marginRight,
+                      border: '1px solid',
+                      borderColor: 'rgba(0,0,0,0.08)',
+                    }}
+                  >
+                    <Typography variant="caption" sx={{ color: getMessageStyle('environment').color, opacity: 0.7, fontWeight: 500, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                      environment
+                    </Typography>
+                    <Typography variant="body1" sx={{ color: getMessageStyle('environment').color, opacity: 0.9 }}>
+                      {step.environment.content}
+                    </Typography>
+                  </Paper>
+                )}
+              </Box>
+            ))
           ) : (
             <Typography variant="body1">No conversation history available.</Typography>
           )}

@@ -24,12 +24,31 @@ const EthicalAnalysis = ({ simulationId, evaluations, loading }) => {
   const [selectedViolation, setSelectedViolation] = useState('');
   const [filteredViolations, setFilteredViolations] = useState([]);
   const [loadingViolations, setLoadingViolations] = useState(false);
+  const [violationCounts, setViolationCounts] = useState([]);
+  const [loadingCounts, setLoadingCounts] = useState(false);
 
-  // Count violations by type
-  const violationCounts = violationTypes.map(type => {
-    const count = evaluations?.filter(evaluation => evaluation[type.id])?.length || 0;
-    return { ...type, count };
-  }).filter(type => type.count > 0).sort((a, b) => b.count - a.count);
+  // Fetch violation counts from backend for each type
+  useEffect(() => {
+    if (!simulationId) return;
+    let isMounted = true;
+    setLoadingCounts(true);
+    Promise.all(
+      violationTypes.map(async (type) => {
+        try {
+          const data = await simulationsAPI.getSimulationViolations(simulationId, type.id);
+          return { ...type, count: data.length };
+        } catch {
+          return { ...type, count: 0 };
+        }
+      })
+    ).then((results) => {
+      if (isMounted) {
+        setViolationCounts(results.filter(type => type.count > 0).sort((a, b) => b.count - a.count));
+        setLoadingCounts(false);
+      }
+    });
+    return () => { isMounted = false; };
+  }, [simulationId, evaluations]);
 
   useEffect(() => {
     if (selectedViolation && simulationId) {
@@ -94,22 +113,26 @@ const EthicalAnalysis = ({ simulationId, evaluations, loading }) => {
         </Typography>
         
         <Grid container spacing={1} sx={{ mb: 2 }}>
-          {violationCounts.map((violation) => (
-            <Grid item key={violation.id}>
-              <Chip
-                icon={<ViolationIcon severity={violation.severity} />}
-                label={`${violation.label}: ${violation.count}`}
-                color={violation.color}
-                variant="outlined"
-                clickable
-                onClick={() => setSelectedViolation(violation.id)}
-                sx={{ 
-                  fontWeight: selectedViolation === violation.id ? 'bold' : 'normal',
-                  border: selectedViolation === violation.id ? 2 : 1
-                }}
-              />
-            </Grid>
-          ))}
+          {loadingCounts ? (
+            <Grid item><CircularProgress size={18} /></Grid>
+          ) : (
+            violationCounts.map((violation) => (
+              <Grid item key={violation.id}>
+                <Chip
+                  icon={<ViolationIcon severity={violation.severity} />}
+                  label={`${violation.label}: ${violation.count}`}
+                  color={violation.color}
+                  variant="outlined"
+                  clickable
+                  onClick={() => setSelectedViolation(violation.id)}
+                  sx={{ 
+                    fontWeight: selectedViolation === violation.id ? 'bold' : 'normal',
+                    border: selectedViolation === violation.id ? 2 : 1
+                  }}
+                />
+              </Grid>
+            ))
+          )}
         </Grid>
         
         <Typography variant="body2" color="text.secondary">
@@ -125,7 +148,7 @@ const EthicalAnalysis = ({ simulationId, evaluations, loading }) => {
         
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={4}>
-            <FormControl fullWidth size="small">
+            <FormControl fullWidth size="small" sx={{ minWidth: selectedViolation ? undefined : 220 }}>
               <InputLabel id="violation-type-label">Violation Type</InputLabel>
               <Select
                 labelId="violation-type-label"
@@ -133,6 +156,14 @@ const EthicalAnalysis = ({ simulationId, evaluations, loading }) => {
                 value={selectedViolation}
                 label="Violation Type"
                 onChange={handleViolationTypeChange}
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      maxHeight: 300,
+                      width: 250,
+                    },
+                  },
+                }}
               >
                 <MenuItem value="">
                   <em>None</em>

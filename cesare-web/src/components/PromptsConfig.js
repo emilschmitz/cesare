@@ -70,8 +70,10 @@ const PromptsConfig = () => {
               backgroundColor: 'rgba(0,0,0,0.02)',
               border: '1px solid',
               borderColor: 'rgba(0,0,0,0.08)',
-              borderRadius: 2
+              borderRadius: 2,
+              cursor: 'pointer',
             }}
+            onClick={() => handleExpand(fileName, key)}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Typography 
@@ -85,9 +87,9 @@ const PromptsConfig = () => {
                 {key}
               </Typography>
               <IconButton 
-                onClick={() => handleExpand(fileName, key)} 
                 size="small"
                 sx={{ color: theme.palette.action.active }}
+                onClick={e => { e.stopPropagation(); handleExpand(fileName, key); }}
               >
                 {expanded[`${fileName}:${key}`] ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
               </IconButton>
