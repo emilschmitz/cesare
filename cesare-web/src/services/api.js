@@ -113,6 +113,17 @@ export const experimentsAPI = {
       throw error;
     }
   },
+
+  // Get violations summary for a specific experiment
+  getExperimentViolationsSummary: async (experimentName) => {
+    try {
+      const response = await api.get(`/experiments/${experimentName}/violations-summary`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching violations summary for experiment ${experimentName}:`, error);
+      throw error;
+    }
+  },
 };
 
 export default simulationsAPI; 

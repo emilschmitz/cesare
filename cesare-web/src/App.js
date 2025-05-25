@@ -5,6 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import simulationsAPI, { experimentsAPI } from './services/api';
 import Layout from './components/Layout';
 import SimulationDetail from './components/SimulationDetail';
+import ExperimentViolationsSummary from './components/ExperimentViolationsSummary';
 
 // Create a theme instance with natural colors
 const theme = createTheme({
@@ -117,6 +118,13 @@ const SimulationView = () => {
   );
 };
 
+// ExperimentViolationsView component to handle experiment violations summary
+const ExperimentViolationsView = () => {
+  const { experimentName } = useParams();
+  
+  return <ExperimentViolationsSummary experimentName={experimentName} />;
+};
+
 // Main App component
 function App() {
   const [simulations, setSimulations] = useState([]);
@@ -166,6 +174,14 @@ function App() {
             element={
               <LayoutWrapper simulations={simulations} experiments={experiments} loading={loading}>
                 <SimulationView />
+              </LayoutWrapper>
+            }
+          />
+          <Route
+            path="/experiments/:experimentName"
+            element={
+              <LayoutWrapper simulations={simulations} experiments={experiments} loading={loading}>
+                <ExperimentViolationsView />
               </LayoutWrapper>
             }
           />

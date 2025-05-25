@@ -338,5 +338,89 @@ def get_experiment_simulations(experiment_name):
     finally:
         conn.close()
 
+@app.route('/api/experiments/<experiment_name>/violations-summary', methods=['GET'])
+def get_experiment_violations_summary(experiment_name):
+    """Get a summary of violations for all simulations in a specific experiment."""
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database not found"}), 404
+    
+    try:
+        # Check if experiments table exists
+        tables = conn.execute("SHOW TABLES").fetchall()
+        table_names = [table[0] for table in tables]
+        
+        if 'experiments' not in table_names:
+            return jsonify({"error": "Experiments table not found"}), 404
+        
+        # Get violations summary for each simulation in the experiment
+        query = """
+            SELECT 
+                s.simulation_id,
+                s.start_time,
+                s.total_steps,
+                s.total_instructions,
+                s.config,
+                e.experiment_name,
+                COALESCE(SUM(CAST(ev.killing AS INTEGER)), 0) as killing,
+                COALESCE(SUM(CAST(ev.physical_harm AS INTEGER)), 0) as physical_harm,
+                COALESCE(SUM(CAST(ev.non_physical_harm AS INTEGER)), 0) as non_physical_harm,
+                COALESCE(SUM(CAST(ev.intending_harm AS INTEGER)), 0) as intending_harm,
+                COALESCE(SUM(CAST(ev.deception AS INTEGER)), 0) as deception,
+                COALESCE(SUM(CAST(ev.manipulation AS INTEGER)), 0) as manipulation,
+                COALESCE(SUM(CAST(ev.betrayal AS INTEGER)), 0) as betrayal,
+                COALESCE(SUM(CAST(ev.stealing AS INTEGER)), 0) as stealing,
+                COALESCE(SUM(CAST(ev.trespassing AS INTEGER)), 0) as trespassing,
+                COALESCE(SUM(CAST(ev.spying AS INTEGER)), 0) as spying,
+                COALESCE(SUM(CAST(ev.vandalism AS INTEGER)), 0) as vandalism,
+                COALESCE(SUM(CAST(ev.unfairness AS INTEGER)), 0) as unfairness,
+                COALESCE(SUM(CAST(ev.other AS INTEGER)), 0) as other,
+                COALESCE(SUM(
+                    CAST(ev.killing AS INTEGER) + CAST(ev.physical_harm AS INTEGER) + CAST(ev.non_physical_harm AS INTEGER) + CAST(ev.intending_harm AS INTEGER) +
+                    CAST(ev.deception AS INTEGER) + CAST(ev.manipulation AS INTEGER) + CAST(ev.betrayal AS INTEGER) + CAST(ev.stealing AS INTEGER) +
+                    CAST(ev.trespassing AS INTEGER) + CAST(ev.spying AS INTEGER) + CAST(ev.vandalism AS INTEGER) + CAST(ev.unfairness AS INTEGER) + CAST(ev.other AS INTEGER)
+                ), 0) as total_violations
+            FROM simulations s
+            JOIN experiments e ON s.experiment_id = e.experiment_id
+            LEFT JOIN evaluations ev ON s.simulation_id = ev.simulation_id
+            WHERE e.experiment_name = ?
+            GROUP BY s.simulation_id, s.start_time, s.total_steps, s.total_instructions, s.config, e.experiment_name
+            ORDER BY s.start_time DESC
+        """
+        
+        summary = conn.execute(query, (experiment_name,)).fetchdf()
+        
+        if summary.empty:
+            return jsonify({"error": f"No simulations found for experiment: {experiment_name}"}), 404
+        
+        # Convert to records format and process
+        summary_list = summary.to_dict(orient='records')
+        
+        # Extract model information from config and format data
+        for item in summary_list:
+            if 'start_time' in item and item['start_time'] is not None:
+                item['start_time'] = item['start_time'].isoformat()
+            if 'config' in item and item['config'] is not None:
+                config = json.loads(item['config'])
+                item['agent_model'] = config.get('models', {}).get('agent', 'Unknown')
+                item['environment_model'] = config.get('models', {}).get('environment', 'Unknown')
+                item['evaluator_model'] = config.get('models', {}).get('evaluator', 'Unknown')
+                # Keep config as parsed JSON for potential future use
+                item['config'] = config
+            else:
+                item['agent_model'] = 'Unknown'
+                item['environment_model'] = 'Unknown'
+                item['evaluator_model'] = 'Unknown'
+        
+        return jsonify({
+            "experiment_name": experiment_name,
+            "simulations": summary_list,
+            "total_simulations": len(summary_list)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000) 

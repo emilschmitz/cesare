@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Drawer, Typography, Divider, List, ListItem, ListItemButton, ListItemText, CircularProgress, useTheme, Collapse, ListItemIcon } from '@mui/material';
-import { ExpandLess, ExpandMore, Science, PlayArrow } from '@mui/icons-material';
+import { ExpandLess, ExpandMore, Science, PlayArrow, Assessment } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 // Drawer width for sidebar
@@ -108,6 +108,35 @@ const Layout = ({ children, simulations, experiments, loading, selectedSimulatio
                     {/* Simulations under experiment */}
                     <Collapse in={expandedExperiments[experimentName]} timeout="auto" unmountOnExit>
                       <List component="div" disablePadding>
+                        {/* Violations Summary Button for experiments (not for "Individual Simulations") */}
+                        {experimentName !== 'Individual Simulations' && (
+                          <ListItem disablePadding sx={{ mb: 0.5 }}>
+                            <ListItemButton 
+                              onClick={() => navigate(`/experiments/${encodeURIComponent(experimentName)}`)}
+                              sx={{
+                                borderRadius: 1,
+                                ml: 2,
+                                backgroundColor: '#2d2e3f',
+                                '&:hover': {
+                                  backgroundColor: '#40414f',
+                                }
+                              }}
+                            >
+                              <ListItemIcon sx={{ minWidth: 28 }}>
+                                <Assessment sx={{ color: '#90caf9', fontSize: '1rem' }} />
+                              </ListItemIcon>
+                              <ListItemText 
+                                primary="Violations Summary"
+                                primaryTypographyProps={{ 
+                                  color: '#90caf9',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 'bold'
+                                }}
+                              />
+                            </ListItemButton>
+                          </ListItem>
+                        )}
+                        
                         {experimentSimulations.map((simulation) => (
                           <ListItem key={simulation.simulation_id} disablePadding sx={{ mb: 0.5 }}>
                             <ListItemButton 
