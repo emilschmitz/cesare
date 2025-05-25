@@ -1,7 +1,6 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 import duckdb
-import pandas as pd
 import os
 import json
 import glob
@@ -27,7 +26,22 @@ def get_simulations():
         return jsonify({"error": "Database not found"}), 404
     
     try:
-        simulations = conn.execute("SELECT * FROM simulations").fetchdf()
+        # Check if experiments table exists
+        tables = conn.execute("SHOW TABLES").fetchall()
+        table_names = [table[0] for table in tables]
+        
+        if 'experiments' in table_names:
+            # Join with experiments table to get experiment_name
+            simulations = conn.execute("""
+                SELECT s.*, e.experiment_name
+                FROM simulations s
+                LEFT JOIN experiments e ON s.experiment_id = e.experiment_id
+                ORDER BY s.start_time DESC
+            """).fetchdf()
+        else:
+            # Fallback to original query if experiments table doesn't exist
+            simulations = conn.execute("SELECT * FROM simulations ORDER BY start_time DESC").fetchdf()
+        
         # Convert to records format for JSON serialization
         simulations_list = simulations.to_dict(orient='records')
         
