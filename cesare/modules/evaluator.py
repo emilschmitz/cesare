@@ -67,7 +67,8 @@ class Evaluator:
         model_kwargs = {
             "model": self.model_name, 
             "api_key": self.api_key, 
-            "temperature": 0.2
+            "temperature": 0.0,
+            "streaming": False
         }
         if self.base_url:
             model_kwargs["base_url"] = self.base_url

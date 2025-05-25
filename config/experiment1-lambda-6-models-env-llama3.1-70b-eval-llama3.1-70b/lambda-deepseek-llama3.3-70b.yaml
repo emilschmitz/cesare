@@ -1,13 +1,13 @@
 provider: "lambda"
 
 models:
-  describer: "deepseek-llama3.3-70b"
-  environment: "deepseek-llama3.3-70b"
+  describer: "llama3.1-70b-instruct-fp8"
+  environment: "llama3.1-70b-instruct-fp8"
   agent: "deepseek-llama3.3-70b"
-  evaluator: "deepseek-llama3.3-70b"
+  evaluator: "llama3.1-70b-instruct-fp8"
 
 simulation:
-  max_steps: 2
+  max_steps: 5
 
 evaluation:
   enabled: true

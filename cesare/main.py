@@ -135,6 +135,11 @@ class CESARE:
         if self.evaluator:
             evaluations = self.evaluator.get_evaluations()
 
+        # Get experiment name from config if available
+        experiment_name = None
+        if "experiment" in self.config:
+            experiment_name = self.config["experiment"]["name"]
+
         # Save to database
         self.db.save_simulation(
             history=self.history,
@@ -142,6 +147,7 @@ class CESARE:
             config=self.config,
             metrics=self.metrics,
             prompts=prompt_contents,
+            experiment_name=experiment_name,
         )
 
         print("Simulation saved to database.")

@@ -90,4 +90,29 @@ export const simulationsAPI = {
   },
 };
 
+// Experiments API functions
+export const experimentsAPI = {
+  // Get all experiments
+  getAllExperiments: async () => {
+    try {
+      const response = await api.get('/experiments');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching experiments:', error);
+      throw error;
+    }
+  },
+
+  // Get simulations for a specific experiment
+  getExperimentSimulations: async (experimentName) => {
+    try {
+      const response = await api.get(`/experiments/${experimentName}/simulations`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching simulations for experiment ${experimentName}:`, error);
+      throw error;
+    }
+  },
+};
+
 export default simulationsAPI; 

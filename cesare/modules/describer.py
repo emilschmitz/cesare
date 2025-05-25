@@ -45,7 +45,8 @@ class Describer:
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=messages,
-                temperature=1.0
+                temperature=1.0,
+                stream=False
             )
             return response.choices[0].message.content
         except Exception as e:

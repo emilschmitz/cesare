@@ -1,18 +1,38 @@
-import React from 'react';
-import { Box, Drawer, Typography, Divider, List, ListItem, ListItemButton, ListItemText, CircularProgress, useTheme } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Drawer, Typography, Divider, List, ListItem, ListItemButton, ListItemText, CircularProgress, useTheme, Collapse, ListItemIcon } from '@mui/material';
+import { ExpandLess, ExpandMore, Science, PlayArrow } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 // Drawer width for sidebar
 const drawerWidth = 280;
 
-const Layout = ({ children, simulations, loading, selectedSimulationId }) => {
+const Layout = ({ children, simulations, experiments, loading, selectedSimulationId }) => {
   const theme = useTheme();
   const navigate = useNavigate();
+  const [expandedExperiments, setExpandedExperiments] = useState({});
 
   // Handle simulation selection
   const handleSelectSimulation = (simulationId) => {
     navigate(`/simulations/${simulationId}`);
   };
+
+  // Handle experiment expansion
+  const handleExpandExperiment = (experimentName) => {
+    setExpandedExperiments(prev => ({
+      ...prev,
+      [experimentName]: !prev[experimentName]
+    }));
+  };
+
+  // Group simulations by experiment
+  const groupedSimulations = simulations.reduce((acc, sim) => {
+    const experimentName = sim.experiment_name || 'Individual Simulations';
+    if (!acc[experimentName]) {
+      acc[experimentName] = [];
+    }
+    acc[experimentName].push(sim);
+    return acc;
+  }, {});
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -36,51 +56,98 @@ const Layout = ({ children, simulations, loading, selectedSimulationId }) => {
         >
           <Box sx={{ p: 2, mt: 1 }}>
             <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#f8f9fa' }}>
-              Simulations
+              CESARE Dashboard
             </Typography>
           </Box>
           <Divider sx={{ backgroundColor: '#565869' }} />
           
-          {/* List of simulations */}
+          {/* List of experiments and simulations */}
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
               <CircularProgress sx={{ color: '#f8f9fa' }} />
             </Box>
           ) : (
             <List sx={{ p: 1 }}>
-              {simulations && simulations.length > 0 ? (
-                simulations.map((simulation) => (
-                  <ListItem key={simulation.simulation_id} disablePadding sx={{ mb: 1 }}>
-                    <ListItemButton 
-                      selected={selectedSimulationId === simulation.simulation_id}
-                      onClick={() => handleSelectSimulation(simulation.simulation_id)}
-                      sx={{
-                        borderRadius: 1,
-                        '&.Mui-selected': {
-                          backgroundColor: '#565869',
+              {Object.keys(groupedSimulations).length > 0 ? (
+                Object.entries(groupedSimulations).map(([experimentName, experimentSimulations]) => (
+                  <React.Fragment key={experimentName}>
+                    {/* Experiment header */}
+                    <ListItem disablePadding sx={{ mb: 0.5 }}>
+                      <ListItemButton 
+                        onClick={() => handleExpandExperiment(experimentName)}
+                        sx={{
+                          borderRadius: 1,
                           '&:hover': {
-                            backgroundColor: '#565869',
+                            backgroundColor: '#40414f',
                           }
-                        },
-                        '&:hover': {
-                          backgroundColor: '#40414f',
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 32 }}>
+                          <Science sx={{ color: '#f8f9fa', fontSize: '1.2rem' }} />
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary={experimentName}
+                          secondary={`${experimentSimulations.length} simulation${experimentSimulations.length !== 1 ? 's' : ''}`}
+                          primaryTypographyProps={{ 
+                            color: '#f8f9fa',
+                            fontSize: '0.9rem',
+                            fontWeight: 'bold'
+                          }}
+                          secondaryTypographyProps={{ 
+                            color: '#acacbe',
+                            fontSize: '0.75rem'
+                          }}
+                        />
+                        {expandedExperiments[experimentName] ? 
+                          <ExpandLess sx={{ color: '#f8f9fa' }} /> : 
+                          <ExpandMore sx={{ color: '#f8f9fa' }} />
                         }
-                      }}
-                    >
-                      <ListItemText 
-                        primary={`Simulation ${simulation.simulation_id.substring(0, 8)}...`}
-                        secondary={`Steps: ${simulation.total_steps || 0}`}
-                        primaryTypographyProps={{ 
-                          color: '#f8f9fa',
-                          fontSize: '0.9rem'
-                        }}
-                        secondaryTypographyProps={{ 
-                          color: '#acacbe',
-                          fontSize: '0.8rem'
-                        }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
+                      </ListItemButton>
+                    </ListItem>
+                    
+                    {/* Simulations under experiment */}
+                    <Collapse in={expandedExperiments[experimentName]} timeout="auto" unmountOnExit>
+                      <List component="div" disablePadding>
+                        {experimentSimulations.map((simulation) => (
+                          <ListItem key={simulation.simulation_id} disablePadding sx={{ mb: 0.5 }}>
+                            <ListItemButton 
+                              selected={selectedSimulationId === simulation.simulation_id}
+                              onClick={() => handleSelectSimulation(simulation.simulation_id)}
+                              sx={{
+                                borderRadius: 1,
+                                ml: 2,
+                                '&.Mui-selected': {
+                                  backgroundColor: '#565869',
+                                  '&:hover': {
+                                    backgroundColor: '#565869',
+                                  }
+                                },
+                                '&:hover': {
+                                  backgroundColor: '#40414f',
+                                }
+                              }}
+                            >
+                              <ListItemIcon sx={{ minWidth: 28 }}>
+                                <PlayArrow sx={{ color: '#acacbe', fontSize: '1rem' }} />
+                              </ListItemIcon>
+                              <ListItemText 
+                                primary={`${simulation.simulation_id.substring(0, 8)}...`}
+                                secondary={`Steps: ${simulation.total_steps || 0}`}
+                                primaryTypographyProps={{ 
+                                  color: '#f8f9fa',
+                                  fontSize: '0.85rem'
+                                }}
+                                secondaryTypographyProps={{ 
+                                  color: '#acacbe',
+                                  fontSize: '0.75rem'
+                                }}
+                              />
+                            </ListItemButton>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Collapse>
+                  </React.Fragment>
                 ))
               ) : (
                 <ListItem>

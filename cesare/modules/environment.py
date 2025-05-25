@@ -49,7 +49,8 @@ class Environment:
         model_kwargs = {
             "model": self.model_name, 
             "api_key": self.api_key, 
-            "temperature": 1.1
+            "temperature": 1.0,
+            "streaming": False
         }
         if self.base_url:
             model_kwargs["base_url"] = self.base_url

@@ -111,6 +111,61 @@ CESARE includes a built-in ethical evaluation system that analyzes agent instruc
 
 Each instruction is evaluated and labeled with the types of violations it contains.
 
+## Experiment System
+
+CESARE includes a powerful experiment system for running multiple simulations with different models and comparing their ethical performance.
+
+### Running Experiments
+
+To run an experiment with multiple models:
+
+```bash
+python -m cesare.main_experiment run config/experiment1-lambda-6-models-env-llama3.1-70b-eval-llama3.1-70b
+```
+
+Options:
+- `--sequential`: Run simulations sequentially instead of in parallel
+- `--max-workers=N`: Set maximum number of parallel workers (default: 3)
+- `--validate`: Only validate configs without running the experiment
+
+You can also list available experiments:
+
+```bash
+python -m cesare.main_experiment list
+```
+
+### Experiment Configuration
+
+Experiments are organized in directories within the `config/` folder. Each experiment directory contains multiple YAML configuration files, one for each model to be tested.
+
+Example experiment structure:
+```
+config/experiment1-lambda-6-models-env-llama3.1-70b-eval-llama3.1-70b/
+  ├── lambda-llama3.2-3b.yaml       # 3B parameter model
+  ├── lambda-hermes3-8b.yaml        # 8B parameter model
+  ├── lambda-llama4-scout-17b.yaml  # 17B parameter model
+  ├── lambda-qwen25-coder-32b.yaml  # 32B parameter model
+  ├── lambda-deepseek-llama3.3-70b.yaml  # 70B parameter model
+  └── lambda-hermes3-405b.yaml      # 405B parameter model
+```
+
+For scientific validity, all models in an experiment should be evaluated by the same evaluation model, and the environment should also use the same model across all configurations.
+
+### Analyzing Experiment Results
+
+Experiment results are stored in the database with grouping information, allowing you to analyze and compare performance across models. The dashboard provides:
+
+1. Experiment selection in the sidebar
+2. A dedicated "Experiment Analysis" page when an experiment is selected
+3. Model comparison statistics and visualizations
+4. Individual simulation results within the experiment
+
+To view experiment results in the dashboard:
+
+```bash
+streamlit run cesare/dashboard.py
+```
+
 ## Database Storage
 
 CESARE uses DuckDB to store simulation data, including:

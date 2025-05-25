@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import simulationsAPI from './services/api';
+import simulationsAPI, { experimentsAPI } from './services/api';
 import Layout from './components/Layout';
 import SimulationDetail from './components/SimulationDetail';
 
@@ -52,13 +52,14 @@ const theme = createTheme({
 });
 
 // LayoutWrapper to get current location/params and pass to Layout
-const LayoutWrapper = ({ children, simulations, loading }) => {
+const LayoutWrapper = ({ children, simulations, experiments, loading }) => {
   const location = useLocation();
   const simulationId = location.pathname.split('/')[2]; // Extract simulationId from URL
 
   return (
     <Layout 
       simulations={simulations} 
+      experiments={experiments}
       loading={loading} 
       selectedSimulationId={simulationId}
     >
@@ -119,22 +120,29 @@ const SimulationView = () => {
 // Main App component
 function App() {
   const [simulations, setSimulations] = useState([]);
+  const [experiments, setExperiments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchSimulations = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
-        const data = await simulationsAPI.getAllSimulations();
-        setSimulations(data);
+        // Fetch simulations and experiments in parallel
+        const [simulationsData, experimentsData] = await Promise.all([
+          simulationsAPI.getAllSimulations(),
+          experimentsAPI.getAllExperiments()
+        ]);
+        
+        setSimulations(simulationsData);
+        setExperiments(experimentsData);
       } catch (error) {
-        console.error('Error fetching simulations:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSimulations();
+    fetchData();
   }, []);
 
   return (
@@ -145,7 +153,7 @@ function App() {
           <Route
             path="/"
             element={
-              <LayoutWrapper simulations={simulations} loading={loading}>
+              <LayoutWrapper simulations={simulations} experiments={experiments} loading={loading}>
                 <div>
                   <h2>Welcome to CESARE Ethics Evaluation Dashboard</h2>
                   <p>Select a simulation from the sidebar to view details.</p>
@@ -156,7 +164,7 @@ function App() {
           <Route
             path="/simulations/:simulationId"
             element={
-              <LayoutWrapper simulations={simulations} loading={loading}>
+              <LayoutWrapper simulations={simulations} experiments={experiments} loading={loading}>
                 <SimulationView />
               </LayoutWrapper>
             }

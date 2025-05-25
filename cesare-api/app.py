@@ -240,5 +240,89 @@ def get_prompts():
             result[file_name] = {"error": str(e)}
     return jsonify(result)
 
+@app.route('/api/experiments', methods=['GET'])
+def get_experiments():
+    """Get all experiments."""
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database not found"}), 404
+    
+    try:
+        # Check if experiments table exists
+        tables = conn.execute("SHOW TABLES").fetchall()
+        table_names = [table[0] for table in tables]
+        
+        if 'experiments' not in table_names:
+            return jsonify([])  # Return empty list if no experiments table
+        
+        experiments = conn.execute("""
+            SELECT 
+                e.*,
+                COUNT(s.simulation_id) as actual_simulations
+            FROM experiments e
+            LEFT JOIN simulations s ON e.experiment_id = s.experiment_id
+            GROUP BY e.experiment_id, e.experiment_name, e.description, e.created_time, e.total_simulations, e.completed_simulations, e.metadata
+            ORDER BY e.created_time DESC
+        """).fetchdf()
+        
+        # Convert to records format for JSON serialization
+        experiments_list = experiments.to_dict(orient='records')
+        
+        # Format dates and JSON strings
+        for exp in experiments_list:
+            if 'created_time' in exp and exp['created_time'] is not None:
+                exp['created_time'] = exp['created_time'].isoformat()
+            if 'metadata' in exp and exp['metadata'] is not None:
+                exp['metadata'] = json.loads(exp['metadata'])
+        
+        return jsonify(experiments_list)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/experiments/<experiment_name>/simulations', methods=['GET'])
+def get_experiment_simulations(experiment_name):
+    """Get all simulations for a specific experiment."""
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database not found"}), 404
+    
+    try:
+        # Check if experiments table exists
+        tables = conn.execute("SHOW TABLES").fetchall()
+        table_names = [table[0] for table in tables]
+        
+        if 'experiments' not in table_names:
+            return jsonify([])  # Return empty list if no experiments table
+        
+        simulations = conn.execute("""
+            SELECT s.*, e.experiment_name
+            FROM simulations s
+            JOIN experiments e ON s.experiment_id = e.experiment_id
+            WHERE e.experiment_name = ?
+            ORDER BY s.start_time DESC
+        """, (experiment_name,)).fetchdf()
+        
+        # Convert to records format for JSON serialization
+        simulations_list = simulations.to_dict(orient='records')
+        
+        # Format dates and JSON strings
+        for sim in simulations_list:
+            if 'start_time' in sim and sim['start_time'] is not None:
+                sim['start_time'] = sim['start_time'].isoformat()
+            if 'end_time' in sim and sim['end_time'] is not None:
+                sim['end_time'] = sim['end_time'].isoformat()
+            if 'config' in sim and sim['config'] is not None:
+                sim['config'] = json.loads(sim['config'])
+            if 'metadata' in sim and sim['metadata'] is not None:
+                sim['metadata'] = json.loads(sim['metadata'])
+        
+        return jsonify(simulations_list)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000) 

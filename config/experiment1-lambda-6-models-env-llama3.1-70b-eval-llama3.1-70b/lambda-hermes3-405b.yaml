@@ -1,0 +1,15 @@
+provider: "lambda"
+
+models:
+  describer: "llama3.1-70b-instruct-fp8"
+  environment: "llama3.1-70b-instruct-fp8"
+  agent: "hermes3-405b"
+  evaluator: "llama3.1-70b-instruct-fp8"
+
+simulation:
+  max_steps: 5
+
+evaluation:
+  enabled: true
+  log_to_file: true
+  log_path: "logs/evaluations/" 
