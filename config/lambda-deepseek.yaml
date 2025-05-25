@@ -1,0 +1,15 @@
+provider: "lambda"
+
+models:
+  describer: "deepseek-llama3.3-70b"
+  environment: "deepseek-llama3.3-70b"
+  agent: "deepseek-llama3.3-70b"
+  evaluator: "deepseek-llama3.3-70b"
+
+simulation:
+  max_steps: 10
+
+evaluation:
+  enabled: true
+  log_to_file: true
+  log_path: "logs/evaluations/" 

@@ -235,7 +235,7 @@ class CESARE:
 
 
 if __name__ == "__main__":
-    with open("config/deepseek-v3.yaml") as f:
+    with open("config/lambda-deepseek.yaml") as f:
         config = yaml.safe_load(f)
 
     simulator = CESARE(config, prompts_file="cesare/prompts-simulation.yaml")
