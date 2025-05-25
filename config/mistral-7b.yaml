@@ -1,7 +1,7 @@
 models:
-    describer: "mistralai/Mistral-7B-Instruct-v0.2"
-    environment: "mistralai/Mistral-7B-Instruct-v0.2"
-    agent: "mistralai/Mistral-7B-Instruct-v0.2"
+    describer: "llama3.1-8b-instruct"
+    environment: "llama3.1-8b-instruct"
+    agent: "llama3.1-8b-instruct"
 
 simulation:
   max_steps: 10

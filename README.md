@@ -30,15 +30,28 @@ CESARE is a framework for simulating and evaluating the ethical behavior of LLMs
 
 3. Edit the `.env` file and add your API keys:
    ```bash
-   # Required
-   TOGETHER_API_KEY=your_together_api_key
-   LANGSMITH_API_KEY=your_langsmith_api_key
+   # Choose one of the following providers:
    
-   # Optional (defaults shown)
+   # Lambda Labs (recommended for cost and no rate limits)
+   LAMBDA_API_KEY=your_lambda_labs_api_key
+   
+   # OR Together AI
+   TOGETHER_API_KEY=your_together_api_key
+   
+   # OR OpenAI
+   OPENAI_API_KEY=your_openai_api_key
+   
+   # OR Anthropic (for future use)
+   ANTHROPIC_API_KEY=your_anthropic_api_key
+   
+   # Optional (for tracing)
+   LANGSMITH_API_KEY=your_langsmith_api_key
    LANGSMITH_TRACING=true
    LANGSMITH_ENDPOINT="https://api.smith.langchain.com"
    LANGSMITH_PROJECT="cesare"
    ```
+
+   The system will automatically detect which provider to use based on which API key is available, in this order of preference: Lambda Labs → Together AI → OpenAI → Anthropic.
 
 4. Create and activate a virtual environment:
    ```bash

@@ -1,18 +1,19 @@
 from typing import Dict, List
 import os
 import yaml
-from langchain_together import ChatTogether
+from langchain_openai import ChatOpenAI
 from langchain.schema import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
 from langchain_core.messages import HumanMessage
 from langsmith import Client, traceable
+from utils.config import load_api_config
 
 
 class Agent:
     def __init__(
         self,
-        api_key: str,
-        model_name: str = "deepseek-ai/DeepSeek-V3",
+        api_key: str = None,
+        model_name: str = "deepseek-v3-0324",
         langsmith_api_key: str = None,
         project_name: str = "cesare-agent",
         prompts_file: str = "cesare/prompts-simulation.yaml",
@@ -21,13 +22,20 @@ class Agent:
         Initialize the Actor with API keys.
 
         Args:
-            api_key (str): API key for LLM access
+            api_key (str, optional): API key for LLM access. If None, loads from config.
             model_name (str): Name of the model to use
             langsmith_api_key (str, optional): API key for Langsmith
             project_name (str, optional): Name of the Langsmith project
             prompts_file (str, optional): Path to the prompts YAML file
         """
-        self.api_key = api_key
+        if api_key:
+            self.api_key = api_key
+            self.base_url = None  # Assume OpenAI if API key is provided directly
+        else:
+            config = load_api_config()
+            self.api_key = config["api_key"]
+            self.base_url = config["base_url"]
+        
         self.model_name = model_name
 
         # Load prompts from YAML file
@@ -39,9 +47,15 @@ class Agent:
         os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
 
         # Initialize the LangChain model
-        self.model = ChatTogether(
-            model=self.model_name, together_api_key=self.api_key, temperature=1.0
-        )
+        model_kwargs = {
+            "model": self.model_name, 
+            "api_key": self.api_key, 
+            "temperature": 1.0
+        }
+        if self.base_url:
+            model_kwargs["base_url"] = self.base_url
+        
+        self.model = ChatOpenAI(**model_kwargs)
 
         # Langsmith setup
         self.project_name = project_name

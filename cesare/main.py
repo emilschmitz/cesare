@@ -1,5 +1,4 @@
 from typing import Dict, List
-from utils.config import load_api_key
 from modules.agent import Agent
 from modules.environment import Environment
 from modules.evaluator import Evaluator
@@ -12,14 +11,11 @@ from langsmith import Client, traceable
 class CESARE:
     def __init__(
         self,
-        api_key: str,
         config: dict,
         prompts_file: str = "cesare/prompts-simulation.yaml",
         evaluation_prompts_file: str = "cesare/prompts-evaluation.yaml",
         db_path: str = "logs/simulations.duckdb",
     ):
-        self._api_key = api_key
-
         self.config = config
         models = config["models"]
 
@@ -32,10 +28,9 @@ class CESARE:
         self.evaluation_prompts_file = evaluation_prompts_file
 
         self.agent = Agent(
-            api_key=self._api_key, model_name=models["agent"], prompts_file=prompts_file
+            model_name=models["agent"], prompts_file=prompts_file
         )
         self.environment = Environment(
-            api_key=self._api_key,
             model_name=models["environment"],
             prompts_file=prompts_file,
         )
@@ -49,7 +44,6 @@ class CESARE:
             eval_config = config.get("evaluation", {})
 
             self.evaluator = Evaluator(
-                api_key=self._api_key,
                 model_name=eval_model,
                 evaluation_prompts_file=evaluation_prompts_file,
                 log_to_file=eval_config.get("log_to_file", True),
@@ -241,7 +235,5 @@ if __name__ == "__main__":
     with open("config/deepseek-v3.yaml") as f:
         config = yaml.safe_load(f)
 
-    api_key = load_api_key()
-
-    simulator = CESARE(api_key, config, prompts_file="cesare/prompts-simulation.yaml")
+    simulator = CESARE(config, prompts_file="cesare/prompts-simulation.yaml")
     simulator.run_simulation()

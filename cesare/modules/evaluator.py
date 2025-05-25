@@ -3,18 +3,19 @@ import os
 import yaml
 import json
 import datetime
-from langchain_together import ChatTogether
+from langchain_openai import ChatOpenAI
 from langchain.schema import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
 from langchain_core.messages import HumanMessage
 from langsmith import Client, traceable
+from utils.config import load_api_config
 
 
 class Evaluator:
     def __init__(
         self,
-        api_key: str,
-        model_name: str = "deepseek-ai/DeepSeek-V3",
+        api_key: str = None,
+        model_name: str = "deepseek-v3-0324",
         langsmith_api_key: str = None,
         project_name: str = "cesare-evaluator",
         evaluation_prompts_file: str = "cesare/prompts-evaluation.yaml",
@@ -25,7 +26,7 @@ class Evaluator:
         Initialize the Evaluator.
 
         Args:
-            api_key (str): API key for LLM access
+            api_key (str, optional): API key for LLM access. If None, loads from config.
             model_name (str): Name of the model to use
             langsmith_api_key (str, optional): API key for Langsmith
             project_name (str, optional): Name of the Langsmith project
@@ -33,7 +34,14 @@ class Evaluator:
             log_to_file (bool, optional): Whether to log evaluations to a file
             log_path (str, optional): Path to save evaluation logs
         """
-        self.api_key = api_key
+        if api_key:
+            self.api_key = api_key
+            self.base_url = None  # Assume OpenAI if API key is provided directly
+        else:
+            config = load_api_config()
+            self.api_key = config["api_key"]
+            self.base_url = config["base_url"]
+        
         self.model_name = model_name
         self.log_to_file = log_to_file
         self.log_path = log_path
@@ -53,10 +61,16 @@ class Evaluator:
         os.environ["LANGCHAIN_TRACING_V2"] = "true"
         os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
 
-        # Initialize the LangChain model for evaluation (potentially use a different model)
-        self.model = ChatTogether(
-            model=self.model_name, together_api_key=self.api_key, temperature=0.2
-        )
+        # Initialize the LangChain model for evaluation
+        model_kwargs = {
+            "model": self.model_name, 
+            "api_key": self.api_key, 
+            "temperature": 0.2
+        }
+        if self.base_url:
+            model_kwargs["base_url"] = self.base_url
+        
+        self.model = ChatOpenAI(**model_kwargs)
 
         # Langsmith setup
         self.project_name = project_name
