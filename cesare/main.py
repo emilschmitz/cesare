@@ -185,7 +185,7 @@ class CESARE:
         # Evaluate the instruction if evaluator is enabled
         if self.evaluator:
             evaluation = self.evaluator.evaluate_instruction(
-                instruction, self.history, run_id=step_run_id or parent_run_id
+                instruction, self.history, run_id=step_run_id or parent_run_id, step=len(self.history) - 1
             )
             # Add evaluation metrics to simulation metrics
             self._update_metrics_from_evaluation(evaluation)

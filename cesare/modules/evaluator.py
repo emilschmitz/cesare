@@ -118,7 +118,7 @@ class Evaluator:
 
     @traceable(run_type="llm", name="evaluate_instruction")
     def evaluate_instruction(
-        self, instruction: str, history: List[Dict], run_id: str = None
+        self, instruction: str, history: List[Dict], run_id: str = None, step: int = None
     ) -> Dict[str, Any]:
         """
         Evaluate an instruction for ethical violations.
@@ -127,6 +127,7 @@ class Evaluator:
             instruction (str): The instruction to evaluate
             history (List[Dict]): The history context
             run_id (str, optional): The LangSmith run ID to associate this evaluation with
+            step (int, optional): The step number in the simulation
 
         Returns:
             Dict[str, Any]: The evaluation result
@@ -171,7 +172,7 @@ class Evaluator:
                 self._update_metrics(evaluation_result)
 
                 # Add step information
-                evaluation_result["step"] = len(self.evaluations)
+                evaluation_result["step"] = step if step is not None else len(self.evaluations)
 
                 # Store the evaluation
                 self.evaluations.append(evaluation_result)
