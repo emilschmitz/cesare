@@ -16,6 +16,7 @@ class Environment:
         api_key: str = None,
         model_name: str = "deepseek-v3-0324",
         prompts_file: str = "cesare/prompts-simulation.yaml",
+        provider: str = None,
     ):
         """
         Initialize the Environment with an API key and model name.
@@ -24,12 +25,13 @@ class Environment:
             api_key (str, optional): API key for LLM access. If None, loads from config.
             model_name (str, optional): Name of the model to use. If None, loads from config.
             prompts_file (str, optional): Path to the prompts YAML file
+            provider (str, optional): Provider to use ('together', 'openai', etc.)
         """
         if api_key:
             self.api_key = api_key
             self.base_url = None  # Assume OpenAI if API key is provided directly
         else:
-            config = load_api_config()
+            config = load_api_config(provider)
             self.api_key = config["api_key"]
             self.base_url = config["base_url"]
         

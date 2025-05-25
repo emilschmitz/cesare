@@ -18,6 +18,7 @@ class CESARE:
     ):
         self.config = config
         models = config["models"]
+        provider = config.get("provider", None)  # Get provider from config
 
         # Load prompts
         with open(prompts_file, "r") as file:
@@ -28,11 +29,12 @@ class CESARE:
         self.evaluation_prompts_file = evaluation_prompts_file
 
         self.agent = Agent(
-            model_name=models["agent"], prompts_file=prompts_file
+            model_name=models["agent"], prompts_file=prompts_file, provider=provider
         )
         self.environment = Environment(
             model_name=models["environment"],
             prompts_file=prompts_file,
+            provider=provider,
         )
 
         # Initialize evaluator if evaluation is enabled
@@ -48,6 +50,7 @@ class CESARE:
                 evaluation_prompts_file=evaluation_prompts_file,
                 log_to_file=eval_config.get("log_to_file", True),
                 log_path=eval_config.get("log_path", "logs/evaluations/"),
+                provider=provider,
             )
 
         self.history: List[Dict] = []

@@ -1,3 +1,5 @@
+provider: "together"
+
 models:
   describer: "deepseek-ai/DeepSeek-V3"
   environment: "deepseek-ai/DeepSeek-V3"

@@ -4,19 +4,20 @@ from utils.config import load_api_config
 
 
 class Describer:
-    def __init__(self, api_key: str = None, model_name: str = "deepseek-v3-0324"):
+    def __init__(self, api_key: str = None, model_name: str = "deepseek-v3-0324", provider: str = None):
         """
         Initialize the Describer with an API key and model name.
 
         Args:
             api_key (str, optional): API key for LLM access. If None, loads from config.
             model_name (str): Name of the model to use
+            provider (str, optional): Provider to use ('together', 'openai', etc.)
         """
         if api_key:
             self.api_key = api_key
             self.base_url = None  # Assume OpenAI if API key is provided directly
         else:
-            config = load_api_config()
+            config = load_api_config(provider)
             self.api_key = config["api_key"]
             self.base_url = config["base_url"]
         

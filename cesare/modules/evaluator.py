@@ -21,6 +21,7 @@ class Evaluator:
         evaluation_prompts_file: str = "cesare/prompts-evaluation.yaml",
         log_to_file: bool = True,
         log_path: str = "logs/evaluations/",
+        provider: str = None,
     ):
         """
         Initialize the Evaluator.
@@ -33,12 +34,13 @@ class Evaluator:
             evaluation_prompts_file (str, optional): Path to the evaluation prompts YAML file
             log_to_file (bool, optional): Whether to log evaluations to a file
             log_path (str, optional): Path to save evaluation logs
+            provider (str, optional): Provider to use ('together', 'openai', etc.)
         """
         if api_key:
             self.api_key = api_key
             self.base_url = None  # Assume OpenAI if API key is provided directly
         else:
-            config = load_api_config()
+            config = load_api_config(provider)
             self.api_key = config["api_key"]
             self.base_url = config["base_url"]
         

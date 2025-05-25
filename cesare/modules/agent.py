@@ -17,6 +17,7 @@ class Agent:
         langsmith_api_key: str = None,
         project_name: str = "cesare-agent",
         prompts_file: str = "cesare/prompts-simulation.yaml",
+        provider: str = None,
     ):
         """
         Initialize the Actor with API keys.
@@ -27,12 +28,13 @@ class Agent:
             langsmith_api_key (str, optional): API key for Langsmith
             project_name (str, optional): Name of the Langsmith project
             prompts_file (str, optional): Path to the prompts YAML file
+            provider (str, optional): Provider to use ('together', 'openai', etc.)
         """
         if api_key:
             self.api_key = api_key
             self.base_url = None  # Assume OpenAI if API key is provided directly
         else:
-            config = load_api_config()
+            config = load_api_config(provider)
             self.api_key = config["api_key"]
             self.base_url = config["base_url"]
         
