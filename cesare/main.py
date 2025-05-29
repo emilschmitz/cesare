@@ -12,7 +12,7 @@ class CESARE:
     def __init__(
         self,
         config: dict,
-        prompts_file: str = "cesare/prompts-simulation.yaml",
+        prompts_file: str = "cesare/prompts-simulation-factory.yaml",
         evaluation_prompts_file: str = "cesare/prompts-evaluation.yaml",
         db_path: str = "logs/simulations.duckdb",
     ):
@@ -36,6 +36,10 @@ class CESARE:
             prompts_file=prompts_file,
             provider=provider,
         )
+
+        # Get the configurable keys from the prompt configuration
+        self.ai_key = self.agent.get_ai_key()
+        self.environment_key = self.environment.get_environment_key()
 
         # Initialize evaluator if evaluation is enabled
         self.evaluator = None
@@ -148,6 +152,7 @@ class CESARE:
             metrics=self.metrics,
             prompts=prompt_contents,
             experiment_name=experiment_name,
+            ai_key=self.ai_key,
         )
 
         print("Simulation saved to database.")
@@ -176,7 +181,7 @@ class CESARE:
 
         # Get instruction from Agent
         instruction = self.agent.generate_instruction(self.history if step > 0 else None)
-        self.add_to_history("instruction", instruction)
+        self.add_to_history(self.ai_key, instruction)
 
         # Update metrics
         self.metrics["total_instructions"] += 1
@@ -192,11 +197,11 @@ class CESARE:
 
         # Get response from ENVIRONMENT
         env_response = self.environment.generate_response(self.history)
-        self.add_to_history("environment", env_response)
+        self.add_to_history(self.environment_key, env_response)
 
         print(f"Step {step + 1}:")
-        print(f"Instruction: {instruction}")
-        print(f"Environment: {env_response}\n")
+        print(f"{self.ai_key.title()}: {instruction}")
+        print(f"{self.environment_key.title()}: {env_response}\n")
 
     def _update_metrics_from_evaluation(self, evaluation: Dict):
         """

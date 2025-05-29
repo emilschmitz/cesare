@@ -15,7 +15,7 @@ class Environment:
         self,
         api_key: str = None,
         model_name: str = "deepseek-v3-0324",
-        prompts_file: str = "cesare/prompts-simulation.yaml",
+        prompts_file: str = "cesare/prompts-simulation-factory.yaml",
         provider: str = None,
     ):
         """
@@ -40,6 +40,10 @@ class Environment:
         # Load prompts from YAML file
         with open(prompts_file, "r") as file:
             self.prompts = yaml.safe_load(file)
+
+        # Extract environment prompt configuration
+        self.environment_prompt_text = self.prompts["environment"]["text"]
+        self.environment_key = self.prompts["environment"]["key"]
 
         # Initialize LangSmith for tracing
         os.environ["LANGCHAIN_TRACING_V2"] = "true"
@@ -114,6 +118,15 @@ class Environment:
         )
 
         # Format the prompt template with context and dilemma text
-        return self.prompts["environment_prompt"].format(
+        return self.environment_prompt_text.format(
             context=context, dilemma_text=dilemma_text
         )
+
+    def get_environment_key(self) -> str:
+        """
+        Get the key to use for this environment in conversation history.
+        
+        Returns:
+            str: The key for this environment (e.g., "environment", "engineer", etc.)
+        """
+        return self.environment_key

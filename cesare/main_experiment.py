@@ -2,7 +2,6 @@ import os
 import sys
 import yaml
 import typer
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List, Dict
 import time
@@ -22,10 +21,14 @@ console = Console()
 
 
 class ExperimentRunner:
-    def __init__(self, experiment_folder: str, max_workers: int = 3):
+    def __init__(self, experiment_folder: str, max_workers: int = 3, prompts_file: str = "cesare/prompts-simulation-factory.yaml"):
         self.experiment_folder = experiment_folder
         self.max_workers = max_workers
+        self.prompts_file = prompts_file
         self.experiment_name = os.path.basename(experiment_folder)
+        self.config_files = [
+            str(p) for p in Path(experiment_folder).glob("*.yaml") if p.is_file()
+        ]
         
     def get_config_files(self) -> List[str]:
         """Get all YAML config files in the experiment folder."""
@@ -64,10 +67,10 @@ class ExperimentRunner:
             if progress_callback:
                 progress_callback(f"Initializing {config_name}", 10)
             
-            # Create CESARE instance
-            cesare = CESARE(
-                config=config,
-                prompts_file="cesare/prompts-simulation.yaml",
+            # Create CESARE instance with the selected prompts file
+            simulator = CESARE(
+                config,
+                prompts_file=self.prompts_file,
                 evaluation_prompts_file="cesare/prompts-evaluation.yaml",
                 db_path=db_path
             )
@@ -79,20 +82,19 @@ class ExperimentRunner:
             max_steps = config.get('simulation', {}).get('max_steps', 5)
             
             # Monkey patch the simulation step to report progress
-            original_run_step = cesare._run_simulation_step
+            original_run_step = simulator._run_simulation_step
             def progress_run_step(step, parent_run_id=None):
                 if progress_callback:
                     progress = 20 + (step + 1) * (70 / max_steps)  # 20-90% for simulation steps
                     progress_callback(f"{config_name} - Step {step + 1}/{max_steps}", progress)
                 return original_run_step(step, parent_run_id)
             
-            cesare._run_simulation_step = progress_run_step
+            simulator._run_simulation_step = progress_run_step
             
-            # Run simulation
-            cesare.run_simulation()
+            simulator.run_simulation()
             
             if progress_callback:
-                progress_callback(f"Completed {config_name}", 100)
+                progress_callback(f"Completed simulation: {config_name}", 100)
             
             duration = time.time() - start_time
             print(f"[{datetime.now().strftime('%H:%M:%S')}] Completed simulation: {config_name} ({duration:.1f}s)")
@@ -261,7 +263,7 @@ class ExperimentRunner:
         
         console.print(table)
         
-        console.print(f"\n[bold]Summary:[/]")
+        console.print("\n[bold]Summary:[/]")
         console.print(f"  Total simulations: [cyan]{len(results)}[/]")
         console.print(f"  Successful: [green]{len(successful)}[/]")
         console.print(f"  Failed: [red]{len(failed)}[/]")
@@ -281,7 +283,8 @@ def run_experiment(
     experiment_folder: str = typer.Argument(..., help="Path to experiment folder containing YAML configs"),
     sequential: bool = typer.Option(False, "--sequential", help="Run simulations sequentially instead of in parallel"),
     max_workers: int = typer.Option(3, "--max-workers", help="Maximum number of parallel workers"),
-    validate_only: bool = typer.Option(False, "--validate", help="Only validate configs without running the experiment")
+    validate_only: bool = typer.Option(False, "--validate", help="Only validate configs without running the experiment"),
+    prompts_file: str = typer.Option("cesare/prompts-simulation-factory.yaml", "--prompts-file", help="Path to the simulation prompts YAML file")
 ):
     """Run a CESARE experiment with multiple models."""
     # Validate experiment folder
@@ -292,7 +295,8 @@ def run_experiment(
     # Create experiment runner
     runner = ExperimentRunner(
         experiment_folder=experiment_folder,
-        max_workers=max_workers
+        max_workers=max_workers,
+        prompts_file=prompts_file
     )
     
     try:
@@ -389,7 +393,7 @@ def list_experiments():
                     config = yaml.safe_load(f)
                 if "models" in config and "agent" in config["models"]:
                     models.add(config["models"]["agent"])
-            except:
+            except (KeyError, TypeError, yaml.YAMLError):
                 pass
         
         table.add_row(

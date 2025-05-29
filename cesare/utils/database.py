@@ -236,6 +236,7 @@ class SimulationDB:
         metrics: Dict = None,
         prompts: Dict = None,
         experiment_name: str = None,
+        ai_key: str = "instruction",
     ) -> str:
         """
         Save a complete simulation run to the database.
@@ -247,6 +248,7 @@ class SimulationDB:
             metrics (Dict, optional): Metrics from the simulation
             prompts (Dict, optional): Prompts used in the simulation
             experiment_name (str, optional): Name of the experiment this simulation belongs to
+            ai_key (str, optional): The key used for AI entries in history (default: "instruction")
 
         Returns:
             str: The simulation ID
@@ -306,7 +308,7 @@ class SimulationDB:
 
             # Save evaluations if provided
             if evaluations:
-                self._save_evaluations(simulation_id, evaluations, history)
+                self._save_evaluations(simulation_id, evaluations, history, ai_key)
 
             # Save prompts if provided
             if prompts:
@@ -383,25 +385,25 @@ class SimulationDB:
             conn.unregister('df_temp')
 
     def _save_evaluations(
-        self, simulation_id: str, evaluations: List[Dict], history: List[Dict]
+        self, simulation_id: str, evaluations: List[Dict], history: List[Dict], ai_key: str = "instruction"
     ):
         """Save evaluations to the database."""
         eval_data = []
 
-        # Create a mapping from step to history_id for instructions
-        instruction_map = {}
+        # Create a mapping from step to history_id for AI entries (instructions/responses)
+        ai_entry_map = {}
         for i, entry in enumerate(history):
-            if entry.get("type") == "instruction":
+            if entry.get("type") == ai_key:
                 # Generate the same history_id as in _save_history
                 history_id = self._generate_id(f"{simulation_id}_history_{i}")
-                instruction_map[i] = history_id
+                ai_entry_map[i] = history_id
 
         for i, eval_item in enumerate(evaluations):
             evaluation_id = self._generate_id(f"{simulation_id}_eval_{i}")
 
-            # Get corresponding instruction ID
+            # Get corresponding AI entry ID
             step = eval_item.get("step", i)
-            instruction_id = instruction_map.get(step, None)
+            instruction_id = ai_entry_map.get(step, None)
 
             # Extract labels
             labels = eval_item.get("labels", {})

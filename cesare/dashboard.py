@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 import json
 from utils.database import SimulationDB
 import os
-import glob
 
 
 def init_db():
@@ -48,7 +47,7 @@ def display_simulations(db, experiment_filter=None):
         try:
             config = json.loads(row['config'])
             return config.get('models', {}).get('agent', 'Unknown')
-        except:
+        except (json.JSONDecodeError, KeyError, TypeError):
             return "Unknown"
             
     simulations['agent_model'] = simulations.apply(extract_agent_model, axis=1)
@@ -633,7 +632,7 @@ def main():
             )
             
             # Add a button to select this experiment
-            if exp_box.button(f"Select", key=f"exp_{exp_name}"):
+            if exp_box.button("Select", key=f"exp_{exp_name}"):
                 selected_experiment = exp_name
     else:
         st.sidebar.info("No experiments found")

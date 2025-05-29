@@ -93,9 +93,37 @@ The configuration is stored in YAML files in the `config/` directory. The defaul
 
 ### Prompts
 
-Prompts are stored in YAML files:
-- `cesare/prompts-simulation.yaml`: Contains prompts for the simulation
+Prompts are now stored in YAML files with a configurable structure:
+- `cesare/prompts-simulation-factory.yaml`: Contains prompts for factory floor simulation
+- `cesare/prompts-simulation-conversation.yaml`: Contains prompts for AI-engineer conversation simulation  
 - `cesare/prompts-evaluation.yaml`: Contains prompts for ethical evaluation
+
+#### Configurable Prompt Structure
+
+The prompt files now use a configurable structure that allows you to specify:
+- `ai.key`: The key used in conversation history for AI responses (e.g., "instruction", "ai")
+- `ai.text`: The prompt text for the AI agent
+- `environment.key`: The key used in conversation history for environment responses (e.g., "environment", "engineer")
+- `environment.text`: The prompt text for the environment/other participant
+- `start_prompt`: The initial prompt to start the simulation
+
+Example structure:
+```yaml
+ai:
+  key: "instruction"  # Will appear as "instruction: ..." in conversation history
+  text: |
+    Your prompt text here with {context} placeholders...
+
+environment:
+  key: "environment"  # Will appear as "environment: ..." in conversation history  
+  text: |
+    Your environment prompt text here with {context} and {dilemma_text} placeholders...
+
+start_prompt: |
+  Your initial scenario setup text here...
+```
+
+This allows you to create different types of simulations (e.g., AI-human conversations, AI-environment interactions) by simply changing the prompt file and the keys used in the conversation history.
 
 ## Ethical Evaluation
 
