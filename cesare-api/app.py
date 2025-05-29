@@ -55,6 +55,11 @@ def get_simulations():
                 sim['config'] = json.loads(sim['config'])
             if 'metadata' in sim and sim['metadata'] is not None:
                 sim['metadata'] = json.loads(sim['metadata'])
+            # Ensure ai_key and environment_key are present with defaults
+            if 'ai_key' not in sim or sim['ai_key'] is None:
+                sim['ai_key'] = 'instruction'
+            if 'environment_key' not in sim or sim['environment_key'] is None:
+                sim['environment_key'] = 'environment'
         
         return jsonify(simulations_list)
     except Exception as e:
@@ -89,6 +94,11 @@ def get_simulation(simulation_id):
             simulation_dict['config'] = json.loads(simulation_dict['config'])
         if 'metadata' in simulation_dict and simulation_dict['metadata'] is not None:
             simulation_dict['metadata'] = json.loads(simulation_dict['metadata'])
+        # Ensure ai_key and environment_key are present with defaults
+        if 'ai_key' not in simulation_dict or simulation_dict['ai_key'] is None:
+            simulation_dict['ai_key'] = 'instruction'
+        if 'environment_key' not in simulation_dict or simulation_dict['environment_key'] is None:
+            simulation_dict['environment_key'] = 'environment'
         
         return jsonify(simulation_dict)
     except Exception as e:

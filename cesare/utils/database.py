@@ -171,7 +171,9 @@ class SimulationDB:
                 total_steps INTEGER,
                 total_instructions INTEGER,
                 config JSON,
-                metadata JSON
+                metadata JSON,
+                ai_key VARCHAR DEFAULT 'instruction',
+                environment_key VARCHAR DEFAULT 'environment'
             )
         """)
 
@@ -237,6 +239,7 @@ class SimulationDB:
         prompts: Dict = None,
         experiment_name: str = None,
         ai_key: str = "instruction",
+        environment_key: str = "environment",
     ) -> str:
         """
         Save a complete simulation run to the database.
@@ -249,6 +252,7 @@ class SimulationDB:
             prompts (Dict, optional): Prompts used in the simulation
             experiment_name (str, optional): Name of the experiment this simulation belongs to
             ai_key (str, optional): The key used for AI entries in history (default: "instruction")
+            environment_key (str, optional): The key used for environment entries in history (default: "environment")
 
         Returns:
             str: The simulation ID
@@ -276,8 +280,8 @@ class SimulationDB:
             self._execute_with_retry(
                 """
                 INSERT INTO simulations 
-                (simulation_id, experiment_id, start_time, end_time, total_steps, total_instructions, config, metadata)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (simulation_id, experiment_id, start_time, end_time, total_steps, total_instructions, config, metadata, ai_key, environment_key)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     simulation_id,
@@ -288,6 +292,8 @@ class SimulationDB:
                     metrics.get("total_instructions", 0) if metrics else 0,
                     json.dumps(config or {}),
                     json.dumps(metadata),
+                    ai_key,
+                    environment_key,
                 ),
             )
 

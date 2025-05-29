@@ -153,6 +153,7 @@ class CESARE:
             prompts=prompt_contents,
             experiment_name=experiment_name,
             ai_key=self.ai_key,
+            environment_key=self.environment_key,
         )
 
         print("Simulation saved to database.")

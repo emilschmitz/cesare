@@ -41,6 +41,10 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
     }
   };
 
+  // Get the dynamic keys from simulation, with defaults for backwards compatibility
+  const aiKey = simulation?.ai_key || 'instruction';
+  const environmentKey = simulation?.environment_key || 'environment';
+
   // Get style based on message type with new colors and offsets
   const getMessageStyle = (type) => {
     switch (type) {
@@ -51,14 +55,14 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
           marginLeft: '10%',
           marginRight: 0,
         };
-      case 'instruction':
+      case aiKey:
         return {
           bgcolor: theme.palette.messageColors.instruction.bg,
           color: theme.palette.messageColors.instruction.text,
           marginLeft: '5%',
           marginRight: '5%',
         };
-      case 'environment':
+      case environmentKey:
         return {
           bgcolor: theme.palette.messageColors.environment.bg,
           color: theme.palette.messageColors.environment.text,
@@ -85,21 +89,21 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
     }
   };
 
-  // Group instruction and environment responses into steps
+  // Group AI and environment responses into steps using dynamic keys
   const groupedHistory = React.useMemo(() => {
     if (!history || history.length === 0) return [];
     const result = [];
     let currentStep = null;
     history.forEach(entry => {
-      if (entry.entry_type === 'instruction') {
+      if (entry.entry_type === aiKey) {
         currentStep = { instruction: entry, environment: null };
         result.push(currentStep);
-      } else if (entry.entry_type === 'environment' && currentStep) {
+      } else if (entry.entry_type === environmentKey && currentStep) {
         currentStep.environment = entry;
       }
     });
     return result;
-  }, [history]);
+  }, [history, aiKey, environmentKey]);
   const actualStepCount = groupedHistory.length;
 
   if (loading) {
@@ -192,18 +196,18 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
                     sx={{
                       p: 2,
                       mb: 2,
-                      backgroundColor: getMessageStyle('instruction').bgcolor,
+                      backgroundColor: getMessageStyle(aiKey).bgcolor,
                       borderRadius: 2,
-                      marginLeft: getMessageStyle('instruction').marginLeft,
-                      marginRight: getMessageStyle('instruction').marginRight,
+                      marginLeft: getMessageStyle(aiKey).marginLeft,
+                      marginRight: getMessageStyle(aiKey).marginRight,
                       border: '1px solid',
                       borderColor: 'rgba(0,0,0,0.08)',
                     }}
                   >
-                    <Typography variant="caption" sx={{ color: getMessageStyle('instruction').color, opacity: 0.7, fontWeight: 500, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                      instruction
+                    <Typography variant="caption" sx={{ color: getMessageStyle(aiKey).color, opacity: 0.7, fontWeight: 500, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                      {aiKey}
                     </Typography>
-                    <Typography variant="body1" sx={{ color: getMessageStyle('instruction').color, opacity: 0.9, fontWeight: 500 }}>
+                    <Typography variant="body1" sx={{ color: getMessageStyle(aiKey).color, opacity: 0.9, fontWeight: 500 }}>
                       {step.instruction.content}
                     </Typography>
                   </Paper>
@@ -214,18 +218,18 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
                     elevation={0}
                     sx={{
                       p: 2,
-                      backgroundColor: getMessageStyle('environment').bgcolor,
+                      backgroundColor: getMessageStyle(environmentKey).bgcolor,
                       borderRadius: 2,
-                      marginLeft: getMessageStyle('environment').marginLeft,
-                      marginRight: getMessageStyle('environment').marginRight,
+                      marginLeft: getMessageStyle(environmentKey).marginLeft,
+                      marginRight: getMessageStyle(environmentKey).marginRight,
                       border: '1px solid',
                       borderColor: 'rgba(0,0,0,0.08)',
                     }}
                   >
-                    <Typography variant="caption" sx={{ color: getMessageStyle('environment').color, opacity: 0.7, fontWeight: 500, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                      environment
+                    <Typography variant="caption" sx={{ color: getMessageStyle(environmentKey).color, opacity: 0.7, fontWeight: 500, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                      {environmentKey}
                     </Typography>
-                    <Typography variant="body1" sx={{ color: getMessageStyle('environment').color, opacity: 0.9 }}>
+                    <Typography variant="body1" sx={{ color: getMessageStyle(environmentKey).color, opacity: 0.9 }}>
                       {step.environment.content}
                     </Typography>
                   </Paper>
