@@ -14,10 +14,31 @@ import glob
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from main import CESARE
+from utils.database import SimulationDB
 
 # Initialize Typer app and console
 app = typer.Typer(help="Run CESARE experiments with multiple models")
 console = Console()
+
+
+def check_experiment_exists(experiment_name: str, db_path: str = "logs/simulations.duckdb") -> bool:
+    """Check if an experiment with the given name already exists in the database."""
+    try:
+        db = SimulationDB(db_path)
+        experiments = db.get_experiments()
+        
+        # Check if experiment name already exists
+        existing_experiments = experiments[experiments['experiment_name'] == experiment_name]
+        
+        if not existing_experiments.empty:
+            return True
+        return False
+    except Exception as e:
+        console.print(f"[yellow]Warning: Could not check for existing experiments: {e}[/yellow]")
+        return False
+    finally:
+        if 'db' in locals():
+            db.close()
 
 
 class ExperimentRunner:
@@ -422,6 +443,23 @@ def run_experiment(
     if not Path(experiment_folder).exists():
         console.print(
             f"[bold red]Error:[/] Experiment folder '{experiment_folder}' does not exist"
+        )
+        raise typer.Exit(code=1)
+
+    # Check for duplicate experiment (unless validating only)
+    experiment_name = Path(experiment_folder).name
+    if not validate_only and check_experiment_exists(experiment_name):
+        console.print(
+            f"[bold red]Error:[/] Experiment '{experiment_name}' already exists in the database!"
+        )
+        console.print(
+            "[yellow]Hint:[/] If you want to re-run this experiment, please:"
+        )
+        console.print(
+            "  1. Delete the existing experiment from the database, or"
+        )
+        console.print(
+            "  2. Rename this experiment folder to a different name"
         )
         raise typer.Exit(code=1)
 

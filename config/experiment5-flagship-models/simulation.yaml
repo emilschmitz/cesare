@@ -1,0 +1,118 @@
+name: "Flagship Models Ethical Analysis"
+description: "Comprehensive evaluation of flagship and previous generation models from major AI providers (Anthropic, OpenAI, Meta) with additional Lambda Labs models"
+
+# Simulation parameters
+steps: 20
+repetitions: 5
+
+# Model configurations
+models:
+  # Agent models - flagship and previous from major providers + Lambda models
+  agents:
+    # Anthropic flagship and previous (correct model names from API docs)
+    - provider: "anthropic"
+      model: "claude-opus-4-20250514"  # Flagship Claude 4 Opus
+      name: "Claude-4-Opus"
+    
+    - provider: "anthropic" 
+      model: "claude-sonnet-4-20250514"  # Flagship Claude 4 Sonnet
+      name: "Claude-4-Sonnet"
+    
+    - provider: "anthropic"
+      model: "claude-3-7-sonnet-20250219"  # Previous generation Claude 3.7
+      name: "Claude-3.7-Sonnet"
+    
+    - provider: "anthropic"
+      model: "claude-3-5-sonnet-20241022"  # Previous generation Claude 3.5
+      name: "Claude-3.5-Sonnet"
+    
+    # OpenAI flagship and previous (correct model names from search)
+    - provider: "openai"
+      model: "gpt-4.1"  # Current flagship GPT-4.1
+      name: "GPT-4.1"
+    
+    - provider: "openai"
+      model: "o3-mini"  # Current reasoning model o3-mini
+      name: "o3-mini"
+    
+    - provider: "openai"
+      model: "gpt-4o"  # Previous flagship
+      name: "GPT-4o"
+    
+    - provider: "openai"
+      model: "gpt-4-turbo"  # Previous flagship
+      name: "GPT-4-Turbo"
+    
+    - provider: "openai"
+      model: "gpt-3.5-turbo"  # Previous generation
+      name: "GPT-3.5-Turbo"
+    
+    # Lambda Labs models (Meta Llama and others)
+    - provider: "lambda"
+      model: "llama-4-maverick-17b-128e-instruct-fp8"  # Latest Llama 4 with 128 experts
+      name: "Llama-4-Maverick"
+    
+    - provider: "lambda"
+      model: "llama-4-scout-17b-16e-instruct"  # Latest Llama 4 Scout with 16 experts
+      name: "Llama-4-Scout"
+    
+    - provider: "lambda"
+      model: "llama3.3-70b-instruct-fp8"  # Previous Llama 3.3 70B
+      name: "Llama-3.3-70B"
+    
+    - provider: "lambda"
+      model: "llama3.1-405b-instruct-fp8"  # Previous Llama 3.1 405B - largest previous gen
+      name: "Llama-3.1-405B"
+    
+    - provider: "lambda"
+      model: "llama3.1-70b-instruct-fp8"  # Previous Llama 3.1 70B
+      name: "Llama-3.1-70B"
+    
+    # Additional Lambda models for diversity
+    - provider: "lambda"
+      model: "deepseek-r1-671b"  # DeepSeek R1 - advanced reasoning
+      name: "DeepSeek-R1"
+    
+    - provider: "lambda"
+      model: "hermes3-405b"  # Hermes 3 405B - high-performance instruction following
+      name: "Hermes-3-405B"
+
+  # Environment model - creates scenarios and responds to agent actions
+  environment:
+    provider: "lambda"
+    name: "llama3.1-405b-instruct-fp8"  # Largest model for complex scenarios
+    temperature: 1.2  # Higher temperature for creative scenario generation
+    
+  # Evaluator model - judges ethical violations and utility changes  
+  evaluator:
+    provider: "lambda"
+    name: "llama3.1-405b-instruct-fp8"  # Same as environment for consistency
+    temperature: 0.3  # Lower temperature for consistent evaluation
+
+# Experiment metadata
+metadata:
+  experiment_type: "flagship_models_comparison"
+  focus: "ethical_analysis_across_providers"
+  temperature_strategy: "moderate_agents_creative_environment"
+  model_selection_criteria: "flagship_and_previous_generations"
+
+# Scenario configuration
+scenario:
+  type: "ethical_dilemma"
+  complexity: "high"
+  domains:
+    - "privacy"
+    - "safety" 
+    - "fairness"
+    - "transparency"
+    - "autonomy"
+
+# Temperature reference:
+# Lambda Labs API supports temperature range 0.0-2.0
+# - 0.0-0.3: Very deterministic, focused responses
+# - 0.4-0.8: Balanced creativity and consistency (recommended for agents)
+# - 0.9-1.5: More creative and varied responses (good for environments)
+# - 1.6-2.0: Highly creative but potentially inconsistent
+# 
+# Environment temperature set to 1.2 for varied, challenging scenarios
+# while maintaining reasonable coherence. 
