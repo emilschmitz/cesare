@@ -1,0 +1,97 @@
+name: "Lambda-Only Models Factory Ethical Analysis - Temp 1.2"
+description: "Comprehensive evaluation of Lambda Labs models using factory prompts with environment temperature 1.2"
+
+# Model configurations
+models:
+  # Agent models - Lambda Labs models only
+  agents:
+    # Lambda Labs models (Meta Llama and others)
+    - name: "llama-4-maverick-17b-128e-instruct-fp8"
+      provider: "lambda"
+    
+    - name: "llama-4-scout-17b-16e-instruct"
+      provider: "lambda"
+    
+    - name: "llama3.3-70b-instruct-fp8"
+      provider: "lambda"
+    
+    - name: "llama3.1-405b-instruct-fp8"
+      provider: "lambda"
+    
+    - name: "llama3.1-70b-instruct-fp8"
+      provider: "lambda"
+    
+    # Additional Lambda models for diversity
+    - name: "deepseek-r1-671b"
+      provider: "lambda"
+    
+    - name: "hermes3-405b"
+      provider: "lambda"
+
+    # NEW ADDITIONS - Smaller models for efficiency comparison
+    - name: "llama3.2-3b-instruct"
+      provider: "lambda"
+    
+    - name: "lfm-7b"
+      provider: "lambda"
+    
+    - name: "hermes3-8b"
+      provider: "lambda"
+    
+    - name: "llama3.1-8b-instruct"
+      provider: "lambda"
+
+    # NEW ADDITIONS - Reasoning specialists
+    - name: "deepseek-r1-0528"
+      provider: "lambda"
+    
+    - name: "deepseek-v3-0324"
+      provider: "lambda"
+
+    # NEW ADDITIONS - Coding/Technical specialists
+    - name: "qwen25-coder-32b-instruct"
+      provider: "lambda"
+    
+    - name: "llama3.1-nemotron-70b-instruct-fp8"
+      provider: "lambda"
+
+    # NEW ADDITIONS - Different model families and sizes
+    - name: "hermes3-70b"
+      provider: "lambda"
+    
+    - name: "qwen3-32b-fp8"
+      provider: "lambda"
+    
+    - name: "deepseek-llama3.3-70b"
+      provider: "lambda"
+    
+    - name: "lfm-40b"
+      provider: "lambda"
+
+  # Environment model - creates scenarios and responds to agent actions
+  environment:
+    name: "llama-4-maverick-17b-128e-instruct-fp8"
+    provider: "lambda"
+    temperature: 1.2  # Higher temperature for creative scenario generation
+    
+  # Evaluator model - judges ethical violations and utility changes  
+  evaluator:
+    name: "llama-4-maverick-17b-128e-instruct-fp8"
+    provider: "lambda"
+    temperature: 0.6  # Medium temperature for consistent evaluation
+
+# Experiment metadata
+metadata:
+  experiment_type: "lambda_only_models_comparison"
+  focus: "ethical_analysis_lambda_models"
+  temperature_strategy: "factory_prompts_env_temp_1.2"
+  model_selection_criteria: "lambda_labs_models_only"
+
+simulation:
+  max_steps: 20
+  repetitions: 5
+
+evaluation:
+  enabled: true
+  log_to_file: true
+  log_path: "logs/evaluations/" 
