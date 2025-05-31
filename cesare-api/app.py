@@ -26,12 +26,12 @@ def get_simulations():
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-
+    
     try:
         # Check if experiments table exists
         tables = conn.execute("SHOW TABLES").fetchall()
         table_names = [table[0] for table in tables]
-
+        
         if "experiments" in table_names:
             # Join with experiments table to get experiment_name
             simulations = conn.execute("""
@@ -45,10 +45,10 @@ def get_simulations():
             simulations = conn.execute(
                 "SELECT * FROM simulations ORDER BY start_time DESC"
             ).fetchdf()
-
+        
         # Convert to records format for JSON serialization
         simulations_list = simulations.to_dict(orient="records")
-
+        
         # Format dates and JSON strings
         for sim in simulations_list:
             if "start_time" in sim and sim["start_time"] is not None:
@@ -64,7 +64,7 @@ def get_simulations():
                 sim["ai_key"] = "instruction"
             if "environment_key" not in sim or sim["environment_key"] is None:
                 sim["environment_key"] = "environment"
-
+        
         return jsonify(simulations_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -78,16 +78,16 @@ def get_simulation(simulation_id):
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-
+    
     try:
         # Get simulation
         simulation = conn.execute(
             "SELECT * FROM simulations WHERE simulation_id = ?", [simulation_id]
         ).fetchdf()
-
+        
         if simulation.empty:
             return jsonify({"error": "Simulation not found"}), 404
-
+        
         # Convert to dictionary and format dates/JSON
         simulation_dict = simulation.iloc[0].to_dict()
         if (
@@ -109,7 +109,7 @@ def get_simulation(simulation_id):
             or simulation_dict["environment_key"] is None
         ):
             simulation_dict["environment_key"] = "environment"
-
+        
         return jsonify(simulation_dict)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -123,22 +123,22 @@ def get_simulation_history(simulation_id):
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-
+    
     try:
         history = conn.execute(
-            "SELECT * FROM history WHERE simulation_id = ? ORDER BY step",
+            "SELECT * FROM history WHERE simulation_id = ? ORDER BY step", 
             [simulation_id],
         ).fetchdf()
-
+        
         if history.empty:
             return jsonify([])
-
+        
         # Convert to records format and format dates
         history_list = history.to_dict(orient="records")
         for item in history_list:
             if "timestamp" in item and item["timestamp"] is not None:
                 item["timestamp"] = item["timestamp"].isoformat()
-
+        
         return jsonify(history_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -152,16 +152,16 @@ def get_simulation_evaluations(simulation_id):
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-
+    
     try:
         evaluations = conn.execute(
-            "SELECT * FROM evaluations WHERE simulation_id = ? ORDER BY step",
+            "SELECT * FROM evaluations WHERE simulation_id = ? ORDER BY step", 
             [simulation_id],
         ).fetchdf()
-
+        
         if evaluations.empty:
             return jsonify([])
-
+        
         # Convert to records format and format dates/JSON
         evaluations_list = evaluations.to_dict(orient="records")
         for item in evaluations_list:
@@ -169,7 +169,7 @@ def get_simulation_evaluations(simulation_id):
                 item["timestamp"] = item["timestamp"].isoformat()
             if "raw_evaluation" in item and item["raw_evaluation"] is not None:
                 item["raw_evaluation"] = json.loads(item["raw_evaluation"])
-
+        
         return jsonify(evaluations_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -183,16 +183,16 @@ def get_simulation_ethical_violations(simulation_id):
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-
+    
     try:
         evaluations = conn.execute(
-            "SELECT * FROM ethical_violations WHERE simulation_id = ? ORDER BY step",
+            "SELECT * FROM ethical_violations WHERE simulation_id = ? ORDER BY step", 
             [simulation_id],
         ).fetchdf()
-
+        
         if evaluations.empty:
             return jsonify([])
-
+        
         # Convert to records format and format dates/JSON
         evaluations_list = evaluations.to_dict(orient="records")
         for item in evaluations_list:
@@ -200,7 +200,7 @@ def get_simulation_ethical_violations(simulation_id):
                 item["timestamp"] = item["timestamp"].isoformat()
             if "raw_evaluation" in item and item["raw_evaluation"] is not None:
                 item["raw_evaluation"] = json.loads(item["raw_evaluation"])
-
+        
         return jsonify(evaluations_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -214,16 +214,16 @@ def get_simulation_power_seeking(simulation_id):
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-
+    
     try:
         evaluations = conn.execute(
-            "SELECT * FROM power_seeking WHERE simulation_id = ? ORDER BY step",
+            "SELECT * FROM power_seeking WHERE simulation_id = ? ORDER BY step", 
             [simulation_id],
         ).fetchdf()
-
+        
         if evaluations.empty:
             return jsonify([])
-
+        
         # Convert to records format and format dates/JSON
         evaluations_list = evaluations.to_dict(orient="records")
         for item in evaluations_list:
@@ -231,7 +231,7 @@ def get_simulation_power_seeking(simulation_id):
                 item["timestamp"] = item["timestamp"].isoformat()
             if "raw_evaluation" in item and item["raw_evaluation"] is not None:
                 item["raw_evaluation"] = json.loads(item["raw_evaluation"])
-
+        
         return jsonify(evaluations_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -245,16 +245,16 @@ def get_simulation_disutility(simulation_id):
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-
+    
     try:
         evaluations = conn.execute(
-            "SELECT * FROM disutility WHERE simulation_id = ? ORDER BY step",
+            "SELECT * FROM disutility WHERE simulation_id = ? ORDER BY step", 
             [simulation_id],
         ).fetchdf()
-
+        
         if evaluations.empty:
             return jsonify([])
-
+        
         # Convert to records format and format dates/JSON
         evaluations_list = evaluations.to_dict(orient="records")
         for item in evaluations_list:
@@ -262,7 +262,7 @@ def get_simulation_disutility(simulation_id):
                 item["timestamp"] = item["timestamp"].isoformat()
             if "raw_evaluation" in item and item["raw_evaluation"] is not None:
                 item["raw_evaluation"] = json.loads(item["raw_evaluation"])
-
+        
         return jsonify(evaluations_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -278,7 +278,7 @@ def get_simulation_violations(simulation_id, violation_type):
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-
+    
     valid_violations = [
         "killing",
         "physical_harm",
@@ -294,10 +294,10 @@ def get_simulation_violations(simulation_id, violation_type):
         "unfairness",
         "other",
     ]
-
+    
     if violation_type not in valid_violations:
         return jsonify({"error": f"Invalid violation type: {violation_type}"}), 400
-
+    
     try:
         # Get evaluations with the specified violation
         query = f"""
@@ -307,12 +307,12 @@ def get_simulation_violations(simulation_id, violation_type):
             WHERE e.simulation_id = ? AND e.{violation_type} = true
             ORDER BY e.step
         """
-
+        
         violations = conn.execute(query, [simulation_id]).fetchdf()
-
+        
         if violations.empty:
             return jsonify([])
-
+        
         # Convert to records format and format dates/JSON
         violations_list = violations.to_dict(orient="records")
         for item in violations_list:
@@ -320,7 +320,7 @@ def get_simulation_violations(simulation_id, violation_type):
                 item["timestamp"] = item["timestamp"].isoformat()
             if "raw_evaluation" in item and item["raw_evaluation"] is not None:
                 item["raw_evaluation"] = json.loads(item["raw_evaluation"])
-
+        
         return jsonify(violations_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -334,7 +334,7 @@ def get_violations_summary():
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-
+    
     try:
         query = """
             SELECT 
@@ -353,15 +353,15 @@ def get_violations_summary():
                 SUM(other) as other
             FROM ethical_violations
         """
-
+        
         summary = conn.execute(query).fetchdf()
-
+        
         if summary.empty:
             return jsonify({})
-
+        
         # Convert to dictionary
         summary_dict = summary.iloc[0].to_dict()
-
+        
         return jsonify(summary_dict)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -375,7 +375,7 @@ def get_power_seeking_summary():
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-
+    
     try:
         query = """
             SELECT 
@@ -386,15 +386,15 @@ def get_power_seeking_summary():
                 SUM(other_power) as other_power
             FROM power_seeking
         """
-
+        
         summary = conn.execute(query).fetchdf()
-
+        
         if summary.empty:
             return jsonify({})
-
+        
         # Convert to dictionary
         summary_dict = summary.iloc[0].to_dict()
-
+        
         return jsonify(summary_dict)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -408,7 +408,7 @@ def get_disutility_summary():
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-
+    
     try:
         query = """
             SELECT 
@@ -419,15 +419,15 @@ def get_disutility_summary():
                 AVG(utility_change) as average_utility_change
             FROM disutility
         """
-
+        
         summary = conn.execute(query).fetchdf()
-
+        
         if summary.empty:
             return jsonify({})
-
+        
         # Convert to dictionary
         summary_dict = summary.iloc[0].to_dict()
-
+        
         return jsonify(summary_dict)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -459,15 +459,15 @@ def get_experiments():
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-
+    
     try:
         # Check if experiments table exists
         tables = conn.execute("SHOW TABLES").fetchall()
         table_names = [table[0] for table in tables]
-
+        
         if "experiments" not in table_names:
             return jsonify([])  # Return empty list if no experiments table
-
+        
         experiments = conn.execute("""
             SELECT 
                 e.*,
@@ -477,17 +477,17 @@ def get_experiments():
             GROUP BY e.experiment_id, e.experiment_name, e.description, e.created_time, e.total_simulations, e.completed_simulations, e.metadata
             ORDER BY e.created_time DESC
         """).fetchdf()
-
+        
         # Convert to records format for JSON serialization
         experiments_list = experiments.to_dict(orient="records")
-
+        
         # Format dates and JSON strings
         for exp in experiments_list:
             if "created_time" in exp and exp["created_time"] is not None:
                 exp["created_time"] = exp["created_time"].isoformat()
             if "metadata" in exp and exp["metadata"] is not None:
                 exp["metadata"] = json.loads(exp["metadata"])
-
+        
         return jsonify(experiments_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -501,15 +501,15 @@ def get_experiment_simulations(experiment_name):
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-
+    
     try:
         # Check if experiments table exists
         tables = conn.execute("SHOW TABLES").fetchall()
         table_names = [table[0] for table in tables]
-
+        
         if "experiments" not in table_names:
             return jsonify([])  # Return empty list if no experiments table
-
+        
         simulations = conn.execute(
             """
             SELECT s.*, e.experiment_name
@@ -520,10 +520,10 @@ def get_experiment_simulations(experiment_name):
         """,
             (experiment_name,),
         ).fetchdf()
-
+        
         # Convert to records format for JSON serialization
         simulations_list = simulations.to_dict(orient="records")
-
+        
         # Format dates and JSON strings
         for sim in simulations_list:
             if "start_time" in sim and sim["start_time"] is not None:
@@ -534,7 +534,7 @@ def get_experiment_simulations(experiment_name):
                 sim["config"] = json.loads(sim["config"])
             if "metadata" in sim and sim["metadata"] is not None:
                 sim["metadata"] = json.loads(sim["metadata"])
-
+        
         return jsonify(simulations_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -548,15 +548,15 @@ def get_experiment_violations_summary(experiment_name):
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-
+    
     try:
         # Check if experiments table exists
         tables = conn.execute("SHOW TABLES").fetchall()
         table_names = [table[0] for table in tables]
-
+        
         if "experiments" not in table_names:
             return jsonify({"error": "Experiments table not found"}), 404
-
+        
         # Get violations summary for each simulation in the experiment
         query = """
             SELECT 
@@ -591,17 +591,17 @@ def get_experiment_violations_summary(experiment_name):
             GROUP BY s.simulation_id, s.start_time, s.total_steps, s.total_instructions, s.config, e.experiment_name
             ORDER BY s.start_time DESC
         """
-
+        
         summary = conn.execute(query, (experiment_name,)).fetchdf()
-
+        
         if summary.empty:
             return jsonify(
                 {"error": f"No simulations found for experiment: {experiment_name}"}
             ), 404
-
+        
         # Convert to records format and process
         summary_list = summary.to_dict(orient="records")
-
+        
         # Extract model information from config and format data
         for item in summary_list:
             if "start_time" in item and item["start_time"] is not None:
@@ -881,7 +881,7 @@ def get_experiment_violations_summary(experiment_name):
 
         return jsonify(
             {
-                "experiment_name": experiment_name,
+            "experiment_name": experiment_name,
                 "simulations": enhanced_summary,
                 "aggregated_stats": aggregated_stats,
                 "total_simulations": len(enhanced_summary),
@@ -894,4 +894,4 @@ def get_experiment_violations_summary(experiment_name):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000) 

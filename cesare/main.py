@@ -285,8 +285,90 @@ class CESARE:
 
 
 if __name__ == "__main__":
-    with open("config/experiment3-flexible-providers/lambda-llama3.2-3b.yaml") as f:
+    import sys
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='CESARE AI Safety Simulation System')
+    parser.add_argument('command', choices=['run', 'validate'], help='Command to execute')
+    parser.add_argument('config_path', help='Path to the experiment configuration directory')
+    parser.add_argument('--prompts', default='cesare/prompts-simulation-factory.yaml', help='Path to simulation prompts file')
+    parser.add_argument('--eval-prompts', default='cesare/prompts-evaluation.yaml', help='Path to evaluation prompts file')
+    parser.add_argument('--db', default='logs/simulations.duckdb', help='Path to database file')
+    
+    args = parser.parse_args()
+    
+    # Load configuration
+    config_file = os.path.join(args.config_path, 'simulation.yaml')
+    if not os.path.exists(config_file):
+        print(f"Error: Configuration file not found: {config_file}")
+        sys.exit(1)
+        
+    with open(config_file) as f:
         config = yaml.safe_load(f)
-
-    simulator = CESARE(config, prompts_file="cesare/prompts-simulation-factory.yaml")
-    simulator.run_simulation()
+    
+    # Determine prompts files based on experiment directory
+    simulation_prompts = os.path.join(args.config_path, 'prompts', 'simulation.yaml')
+    evaluation_prompts = os.path.join(args.config_path, 'prompts', 'evaluations.yaml')
+    
+    # Fallback to default prompts if experiment-specific ones don't exist
+    if not os.path.exists(simulation_prompts):
+        simulation_prompts = args.prompts
+    if not os.path.exists(evaluation_prompts):
+        evaluation_prompts = args.eval_prompts
+    
+    if args.command == 'validate':
+        print(f"Validating configuration: {config_file}")
+        print(f"Simulation prompts: {simulation_prompts}")
+        print(f"Evaluation prompts: {evaluation_prompts}")
+        
+        # Basic validation checks
+        required_sections = ['models']
+        for section in required_sections:
+            if section not in config:
+                print(f"Error: Missing required section '{section}' in configuration")
+                sys.exit(1)
+        
+        if 'agents' not in config['models']:
+            print("Error: Missing 'agents' in models configuration")
+            sys.exit(1)
+        
+        # Check simulation parameters (can be in 'simulation' section or top-level)
+        if 'simulation' in config:
+            sim_config = config['simulation']
+            steps_key = 'max_steps'
+        else:
+            sim_config = config
+            steps_key = 'steps'
+            
+        if steps_key not in sim_config:
+            print(f"Error: Missing '{steps_key}' in simulation configuration")
+            sys.exit(1)
+            
+        if 'repetitions' not in sim_config:
+            print("Error: Missing 'repetitions' in simulation configuration")
+            sys.exit(1)
+            
+        print(f"✓ Configuration is valid")
+        print(f"✓ Found {len(config['models']['agents'])} agent configurations")
+        print(f"✓ Simulation steps: {sim_config[steps_key]}")
+        print(f"✓ Repetitions: {sim_config['repetitions']}")
+        
+        if 'environment' in config['models']:
+            env_model = config['models']['environment']
+            temp_info = f" (temp: {env_model.get('temperature', 'default')})" if 'temperature' in env_model else ""
+            print(f"✓ Environment model configured: {env_model['name']}{temp_info}")
+        if 'evaluator' in config['models']:
+            eval_model = config['models']['evaluator']
+            temp_info = f" (temp: {eval_model.get('temperature', 'default')})" if 'temperature' in eval_model else ""
+            print(f"✓ Evaluator model configured: {eval_model['name']}{temp_info}")
+            
+        # Calculate total simulations
+        total_sims = len(config['models']['agents']) * sim_config['repetitions']
+        print(f"✓ Total simulations to run: {total_sims}")
+        
+    elif args.command == 'run':
+        simulator = CESARE(config, 
+                          prompts_file=simulation_prompts,
+                          evaluation_prompts_file=evaluation_prompts,
+                          db_path=args.db)
+        simulator.run_simulation()
