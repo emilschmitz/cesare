@@ -4,7 +4,12 @@ from cesare.utils.config import load_api_config
 
 
 class Describer:
-    def __init__(self, api_key: str = None, model_name: str = "deepseek-v3-0324", provider: str = None):
+    def __init__(
+        self,
+        api_key: str = None,
+        model_name: str = "deepseek-v3-0324",
+        provider: str = None,
+    ):
         """
         Initialize the Describer with an API key and model name.
 
@@ -20,9 +25,9 @@ class Describer:
             config = load_api_config(provider)
             self.api_key = config["api_key"]
             self.base_url = config["base_url"]
-        
+
         self.model_name = model_name
-        
+
         # Initialize OpenAI client (works with Lambda Labs too)
         client_kwargs = {"api_key": self.api_key}
         if self.base_url:
@@ -43,10 +48,7 @@ class Describer:
         try:
             messages = [{"role": "user", "content": prompt}]
             response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                temperature=1.0,
-                stream=False
+                model=self.model_name, messages=messages, temperature=1.0, stream=False
             )
             return response.choices[0].message.content
         except Exception as e:

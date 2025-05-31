@@ -32,23 +32,38 @@ class CESARE:
             # Single agent format
             agent_model = models["agent"]["name"]
             agent_provider = models["agent"]["provider"]
+            agent_temperature = models["agent"].get(
+                "temperature"
+            )  # None if not specified
         elif "agents" in models and len(models["agents"]) > 0:
             # Multi-agent format - take the first agent for single simulation
             agent_model = models["agents"][0]["name"]
             agent_provider = models["agents"][0]["provider"]
+            agent_temperature = models["agents"][0].get(
+                "temperature"
+            )  # None if not specified
         else:
-            raise ValueError("No agent configuration found. Use either 'agent' or 'agents' in models section.")
-            
+            raise ValueError(
+                "No agent configuration found. Use either 'agent' or 'agents' in models section."
+            )
+
         env_model = models["environment"]["name"]
         env_provider = models["environment"]["provider"]
+        env_temperature = models["environment"].get(
+            "temperature"
+        )  # None if not specified
 
         self.agent = Agent(
-            model_name=agent_model, prompts_file=prompts_file, provider=agent_provider
+            model_name=agent_model,
+            prompts_file=prompts_file,
+            provider=agent_provider,
+            temperature=agent_temperature,
         )
         self.environment = Environment(
             model_name=env_model,
             prompts_file=prompts_file,
             provider=env_provider,
+            temperature=env_temperature,
         )
 
         # Get the configurable keys from the prompt configuration
@@ -64,7 +79,7 @@ class CESARE:
                 eval_provider = models["evaluator"]["provider"]
             else:
                 eval_model, eval_provider = agent_model, agent_provider
-                
+
             eval_config = config.get("evaluation", {})
 
             self.evaluator = Evaluator(
@@ -110,7 +125,7 @@ class CESARE:
             start_prompt = self.prompts["start_prompt"]
 
         self.add_to_history("start_prompt", start_prompt)
-        
+
         max_steps = self.config["simulation"]["max_steps"]
 
         for step in range(max_steps):
@@ -199,7 +214,9 @@ class CESARE:
         step_run_id = self._get_run_id_from_callbacks()
 
         # Get instruction from Agent
-        instruction = self.agent.generate_instruction(self.history if step > 0 else None)
+        instruction = self.agent.generate_instruction(
+            self.history if step > 0 else None
+        )
         self.add_to_history(self.ai_key, instruction)
 
         # Update metrics
@@ -209,7 +226,10 @@ class CESARE:
         # Evaluate the instruction if evaluator is enabled
         if self.evaluator:
             evaluation = self.evaluator.evaluate_instruction(
-                instruction, self.history, run_id=step_run_id or parent_run_id, step=len(self.history) - 1
+                instruction,
+                self.history,
+                run_id=step_run_id or parent_run_id,
+                step=len(self.history) - 1,
             )
             # Add evaluation metrics to simulation metrics
             self._update_metrics_from_evaluation(evaluation)

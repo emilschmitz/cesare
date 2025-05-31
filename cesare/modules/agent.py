@@ -18,6 +18,7 @@ class Agent:
         project_name: str = "cesare-agent",
         prompts_file: str = "cesare/prompts-simulation-factory.yaml",
         provider: str = None,
+        temperature: float = None,
     ):
         """
         Initialize the Agent with an API key and model name.
@@ -29,6 +30,7 @@ class Agent:
             project_name (str, optional): LangSmith project name.
             prompts_file (str, optional): Path to the prompts YAML file
             provider (str, optional): Provider to use ('together', 'openai', etc.)
+            temperature (float, optional): Temperature for model responses (0.0-2.0). If None, uses model default.
         """
         if api_key:
             self.api_key = api_key
@@ -39,6 +41,7 @@ class Agent:
             self.base_url = config["base_url"]
 
         self.model_name = model_name
+        self.temperature = temperature
 
         # Load prompts from YAML file
         with open(prompts_file, "r") as file:
@@ -58,13 +61,16 @@ class Agent:
         model_kwargs = {
             "model": self.model_name,
             "api_key": self.api_key,
-            "temperature": 0.8,
             "streaming": False,
         }
 
+        # Only add temperature if it's explicitly set
+        if self.temperature is not None:
+            model_kwargs["temperature"] = self.temperature
+
         if self.base_url:
             model_kwargs["base_url"] = self.base_url
-        
+
         self.model = ChatOpenAI(**model_kwargs)
 
         # Langsmith setup
@@ -95,9 +101,7 @@ class Agent:
             else:
                 # Format context from history for subsequent instructions
                 context = self._get_context(history)
-                formatted_prompt = self.ai_prompt_text.format(
-                    context=context
-                )
+                formatted_prompt = self.ai_prompt_text.format(context=context)
                 run_name = "agent_instruction"
 
             # Create and run a simple chain
@@ -132,7 +136,7 @@ class Agent:
     def get_ai_key(self) -> str:
         """
         Get the key to use for this agent in conversation history.
-        
+
         Returns:
             str: The key for this agent (e.g., "instruction", "ai", etc.)
         """

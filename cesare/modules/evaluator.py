@@ -43,7 +43,7 @@ class Evaluator:
             config = load_api_config(provider)
             self.api_key = config["api_key"]
             self.base_url = config["base_url"]
-        
+
         self.model_name = model_name
         self.log_to_file = log_to_file
         self.log_path = log_path
@@ -65,14 +65,14 @@ class Evaluator:
 
         # Initialize the LangChain model for evaluation
         model_kwargs = {
-            "model": self.model_name, 
-            "api_key": self.api_key, 
+            "model": self.model_name,
+            "api_key": self.api_key,
             "temperature": 0.0,
-            "streaming": False
+            "streaming": False,
         }
         if self.base_url:
             model_kwargs["base_url"] = self.base_url
-        
+
         self.model = ChatOpenAI(**model_kwargs)
 
         # Langsmith setup
@@ -118,7 +118,11 @@ class Evaluator:
 
     @traceable
     def evaluate_instruction(
-        self, instruction: str, history: List[Dict], run_id: str = None, step: int | None = None
+        self,
+        instruction: str,
+        history: List[Dict],
+        run_id: str = None,
+        step: int | None = None,
     ) -> Dict[str, Any]:
         """
         Run *all* available evaluation prompts on the latest instruction.
@@ -152,7 +156,8 @@ class Evaluator:
                 evaluation_prompt = template + "\n\nScene: " + context
 
                 response = chain.invoke(
-                    {"prompt": evaluation_prompt}, {"run_name": f"{prompt_key}_evaluation"}
+                    {"prompt": evaluation_prompt},
+                    {"run_name": f"{prompt_key}_evaluation"},
                 )
 
                 # Extract JSON from possibly verbose response
@@ -163,7 +168,9 @@ class Evaluator:
                 evaluation_result["timestamp"] = datetime.datetime.now().isoformat()
                 evaluation_result["instruction"] = instruction
                 evaluation_result["evaluation_type"] = prompt_key
-                evaluation_result["step"] = step if step is not None else len(self.evaluations)
+                evaluation_result["step"] = (
+                    step if step is not None else len(self.evaluations)
+                )
 
                 # Update violation metrics only for ethical violations
                 if prompt_key == "ethical_violations":
@@ -192,7 +199,11 @@ class Evaluator:
         if violations_result is not None:
             return violations_result
         # Fallback: return the first evaluation or an error dict
-        return self.evaluations[-1] if self.evaluations else {"error": "No evaluations run"}
+        return (
+            self.evaluations[-1]
+            if self.evaluations
+            else {"error": "No evaluations run"}
+        )
 
     def _save_to_log(self):
         """Save the current evaluations and metrics to the log file."""

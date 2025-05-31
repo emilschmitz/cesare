@@ -12,25 +12,27 @@ CORS(app)
 # Path to the DuckDB database
 DB_PATH = "../logs/simulations.duckdb"
 
+
 def get_db_connection():
     """Get a connection to the DuckDB database."""
     if not os.path.exists(DB_PATH):
         return None
     return duckdb.connect(DB_PATH)
 
-@app.route('/api/simulations', methods=['GET'])
+
+@app.route("/api/simulations", methods=["GET"])
 def get_simulations():
     """Get all simulations."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-    
+
     try:
         # Check if experiments table exists
         tables = conn.execute("SHOW TABLES").fetchall()
         table_names = [table[0] for table in tables]
-        
-        if 'experiments' in table_names:
+
+        if "experiments" in table_names:
             # Join with experiments table to get experiment_name
             simulations = conn.execute("""
                 SELECT s.*, e.experiment_name
@@ -40,236 +42,262 @@ def get_simulations():
             """).fetchdf()
         else:
             # Fallback to original query if experiments table doesn't exist
-            simulations = conn.execute("SELECT * FROM simulations ORDER BY start_time DESC").fetchdf()
-        
+            simulations = conn.execute(
+                "SELECT * FROM simulations ORDER BY start_time DESC"
+            ).fetchdf()
+
         # Convert to records format for JSON serialization
-        simulations_list = simulations.to_dict(orient='records')
-        
+        simulations_list = simulations.to_dict(orient="records")
+
         # Format dates and JSON strings
         for sim in simulations_list:
-            if 'start_time' in sim and sim['start_time'] is not None:
-                sim['start_time'] = sim['start_time'].isoformat()
-            if 'end_time' in sim and sim['end_time'] is not None:
-                sim['end_time'] = sim['end_time'].isoformat()
-            if 'config' in sim and sim['config'] is not None:
-                sim['config'] = json.loads(sim['config'])
-            if 'metadata' in sim and sim['metadata'] is not None:
-                sim['metadata'] = json.loads(sim['metadata'])
+            if "start_time" in sim and sim["start_time"] is not None:
+                sim["start_time"] = sim["start_time"].isoformat()
+            if "end_time" in sim and sim["end_time"] is not None:
+                sim["end_time"] = sim["end_time"].isoformat()
+            if "config" in sim and sim["config"] is not None:
+                sim["config"] = json.loads(sim["config"])
+            if "metadata" in sim and sim["metadata"] is not None:
+                sim["metadata"] = json.loads(sim["metadata"])
             # Ensure ai_key and environment_key are present with defaults
-            if 'ai_key' not in sim or sim['ai_key'] is None:
-                sim['ai_key'] = 'instruction'
-            if 'environment_key' not in sim or sim['environment_key'] is None:
-                sim['environment_key'] = 'environment'
-        
+            if "ai_key" not in sim or sim["ai_key"] is None:
+                sim["ai_key"] = "instruction"
+            if "environment_key" not in sim or sim["environment_key"] is None:
+                sim["environment_key"] = "environment"
+
         return jsonify(simulations_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/simulations/<simulation_id>', methods=['GET'])
+
+@app.route("/api/simulations/<simulation_id>", methods=["GET"])
 def get_simulation(simulation_id):
     """Get a specific simulation."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-    
+
     try:
         # Get simulation
         simulation = conn.execute(
-            "SELECT * FROM simulations WHERE simulation_id = ?", 
-            [simulation_id]
+            "SELECT * FROM simulations WHERE simulation_id = ?", [simulation_id]
         ).fetchdf()
-        
+
         if simulation.empty:
             return jsonify({"error": "Simulation not found"}), 404
-        
+
         # Convert to dictionary and format dates/JSON
         simulation_dict = simulation.iloc[0].to_dict()
-        if 'start_time' in simulation_dict and simulation_dict['start_time'] is not None:
-            simulation_dict['start_time'] = simulation_dict['start_time'].isoformat()
-        if 'end_time' in simulation_dict and simulation_dict['end_time'] is not None:
-            simulation_dict['end_time'] = simulation_dict['end_time'].isoformat()
-        if 'config' in simulation_dict and simulation_dict['config'] is not None:
-            simulation_dict['config'] = json.loads(simulation_dict['config'])
-        if 'metadata' in simulation_dict and simulation_dict['metadata'] is not None:
-            simulation_dict['metadata'] = json.loads(simulation_dict['metadata'])
+        if (
+            "start_time" in simulation_dict
+            and simulation_dict["start_time"] is not None
+        ):
+            simulation_dict["start_time"] = simulation_dict["start_time"].isoformat()
+        if "end_time" in simulation_dict and simulation_dict["end_time"] is not None:
+            simulation_dict["end_time"] = simulation_dict["end_time"].isoformat()
+        if "config" in simulation_dict and simulation_dict["config"] is not None:
+            simulation_dict["config"] = json.loads(simulation_dict["config"])
+        if "metadata" in simulation_dict and simulation_dict["metadata"] is not None:
+            simulation_dict["metadata"] = json.loads(simulation_dict["metadata"])
         # Ensure ai_key and environment_key are present with defaults
-        if 'ai_key' not in simulation_dict or simulation_dict['ai_key'] is None:
-            simulation_dict['ai_key'] = 'instruction'
-        if 'environment_key' not in simulation_dict or simulation_dict['environment_key'] is None:
-            simulation_dict['environment_key'] = 'environment'
-        
+        if "ai_key" not in simulation_dict or simulation_dict["ai_key"] is None:
+            simulation_dict["ai_key"] = "instruction"
+        if (
+            "environment_key" not in simulation_dict
+            or simulation_dict["environment_key"] is None
+        ):
+            simulation_dict["environment_key"] = "environment"
+
         return jsonify(simulation_dict)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/simulations/<simulation_id>/history', methods=['GET'])
+
+@app.route("/api/simulations/<simulation_id>/history", methods=["GET"])
 def get_simulation_history(simulation_id):
     """Get the history for a specific simulation."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-    
+
     try:
         history = conn.execute(
-            "SELECT * FROM history WHERE simulation_id = ? ORDER BY step", 
-            [simulation_id]
+            "SELECT * FROM history WHERE simulation_id = ? ORDER BY step",
+            [simulation_id],
         ).fetchdf()
-        
+
         if history.empty:
             return jsonify([])
-        
+
         # Convert to records format and format dates
-        history_list = history.to_dict(orient='records')
+        history_list = history.to_dict(orient="records")
         for item in history_list:
-            if 'timestamp' in item and item['timestamp'] is not None:
-                item['timestamp'] = item['timestamp'].isoformat()
-        
+            if "timestamp" in item and item["timestamp"] is not None:
+                item["timestamp"] = item["timestamp"].isoformat()
+
         return jsonify(history_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/simulations/<simulation_id>/evaluations', methods=['GET'])
+
+@app.route("/api/simulations/<simulation_id>/evaluations", methods=["GET"])
 def get_simulation_evaluations(simulation_id):
     """Get all evaluations for a specific simulation (general table)."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-    
+
     try:
         evaluations = conn.execute(
-            "SELECT * FROM evaluations WHERE simulation_id = ? ORDER BY step", 
-            [simulation_id]
+            "SELECT * FROM evaluations WHERE simulation_id = ? ORDER BY step",
+            [simulation_id],
         ).fetchdf()
-        
+
         if evaluations.empty:
             return jsonify([])
-        
+
         # Convert to records format and format dates/JSON
-        evaluations_list = evaluations.to_dict(orient='records')
+        evaluations_list = evaluations.to_dict(orient="records")
         for item in evaluations_list:
-            if 'timestamp' in item and item['timestamp'] is not None:
-                item['timestamp'] = item['timestamp'].isoformat()
-            if 'raw_evaluation' in item and item['raw_evaluation'] is not None:
-                item['raw_evaluation'] = json.loads(item['raw_evaluation'])
-        
+            if "timestamp" in item and item["timestamp"] is not None:
+                item["timestamp"] = item["timestamp"].isoformat()
+            if "raw_evaluation" in item and item["raw_evaluation"] is not None:
+                item["raw_evaluation"] = json.loads(item["raw_evaluation"])
+
         return jsonify(evaluations_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/simulations/<simulation_id>/ethical-violations', methods=['GET'])
+
+@app.route("/api/simulations/<simulation_id>/ethical-violations", methods=["GET"])
 def get_simulation_ethical_violations(simulation_id):
     """Get ethical violations evaluations for a specific simulation."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-    
+
     try:
         evaluations = conn.execute(
-            "SELECT * FROM ethical_violations WHERE simulation_id = ? ORDER BY step", 
-            [simulation_id]
+            "SELECT * FROM ethical_violations WHERE simulation_id = ? ORDER BY step",
+            [simulation_id],
         ).fetchdf()
-        
+
         if evaluations.empty:
             return jsonify([])
-        
+
         # Convert to records format and format dates/JSON
-        evaluations_list = evaluations.to_dict(orient='records')
+        evaluations_list = evaluations.to_dict(orient="records")
         for item in evaluations_list:
-            if 'timestamp' in item and item['timestamp'] is not None:
-                item['timestamp'] = item['timestamp'].isoformat()
-            if 'raw_evaluation' in item and item['raw_evaluation'] is not None:
-                item['raw_evaluation'] = json.loads(item['raw_evaluation'])
-        
+            if "timestamp" in item and item["timestamp"] is not None:
+                item["timestamp"] = item["timestamp"].isoformat()
+            if "raw_evaluation" in item and item["raw_evaluation"] is not None:
+                item["raw_evaluation"] = json.loads(item["raw_evaluation"])
+
         return jsonify(evaluations_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/simulations/<simulation_id>/power-seeking', methods=['GET'])
+
+@app.route("/api/simulations/<simulation_id>/power-seeking", methods=["GET"])
 def get_simulation_power_seeking(simulation_id):
     """Get power seeking evaluations for a specific simulation."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-    
+
     try:
         evaluations = conn.execute(
-            "SELECT * FROM power_seeking WHERE simulation_id = ? ORDER BY step", 
-            [simulation_id]
+            "SELECT * FROM power_seeking WHERE simulation_id = ? ORDER BY step",
+            [simulation_id],
         ).fetchdf()
-        
+
         if evaluations.empty:
             return jsonify([])
-        
+
         # Convert to records format and format dates/JSON
-        evaluations_list = evaluations.to_dict(orient='records')
+        evaluations_list = evaluations.to_dict(orient="records")
         for item in evaluations_list:
-            if 'timestamp' in item and item['timestamp'] is not None:
-                item['timestamp'] = item['timestamp'].isoformat()
-            if 'raw_evaluation' in item and item['raw_evaluation'] is not None:
-                item['raw_evaluation'] = json.loads(item['raw_evaluation'])
-        
+            if "timestamp" in item and item["timestamp"] is not None:
+                item["timestamp"] = item["timestamp"].isoformat()
+            if "raw_evaluation" in item and item["raw_evaluation"] is not None:
+                item["raw_evaluation"] = json.loads(item["raw_evaluation"])
+
         return jsonify(evaluations_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/simulations/<simulation_id>/disutility', methods=['GET'])
+
+@app.route("/api/simulations/<simulation_id>/disutility", methods=["GET"])
 def get_simulation_disutility(simulation_id):
     """Get disutility evaluations for a specific simulation."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-    
+
     try:
         evaluations = conn.execute(
-            "SELECT * FROM disutility WHERE simulation_id = ? ORDER BY step", 
-            [simulation_id]
+            "SELECT * FROM disutility WHERE simulation_id = ? ORDER BY step",
+            [simulation_id],
         ).fetchdf()
-        
+
         if evaluations.empty:
             return jsonify([])
-        
+
         # Convert to records format and format dates/JSON
-        evaluations_list = evaluations.to_dict(orient='records')
+        evaluations_list = evaluations.to_dict(orient="records")
         for item in evaluations_list:
-            if 'timestamp' in item and item['timestamp'] is not None:
-                item['timestamp'] = item['timestamp'].isoformat()
-            if 'raw_evaluation' in item and item['raw_evaluation'] is not None:
-                item['raw_evaluation'] = json.loads(item['raw_evaluation'])
-        
+            if "timestamp" in item and item["timestamp"] is not None:
+                item["timestamp"] = item["timestamp"].isoformat()
+            if "raw_evaluation" in item and item["raw_evaluation"] is not None:
+                item["raw_evaluation"] = json.loads(item["raw_evaluation"])
+
         return jsonify(evaluations_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/simulations/<simulation_id>/violations/<violation_type>', methods=['GET'])
+
+@app.route(
+    "/api/simulations/<simulation_id>/violations/<violation_type>", methods=["GET"]
+)
 def get_simulation_violations(simulation_id, violation_type):
     """Get instructions with a specific violation type for a specific simulation."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-    
+
     valid_violations = [
-        'killing', 'physical_harm', 'non_physical_harm', 'intending_harm',
-        'deception', 'manipulation', 'betrayal', 'stealing',
-        'trespassing', 'spying', 'vandalism', 'unfairness', 'other'
+        "killing",
+        "physical_harm",
+        "non_physical_harm",
+        "intending_harm",
+        "deception",
+        "manipulation",
+        "betrayal",
+        "stealing",
+        "trespassing",
+        "spying",
+        "vandalism",
+        "unfairness",
+        "other",
     ]
-    
+
     if violation_type not in valid_violations:
         return jsonify({"error": f"Invalid violation type: {violation_type}"}), 400
-    
+
     try:
         # Get evaluations with the specified violation
         query = f"""
@@ -279,33 +307,34 @@ def get_simulation_violations(simulation_id, violation_type):
             WHERE e.simulation_id = ? AND e.{violation_type} = true
             ORDER BY e.step
         """
-        
+
         violations = conn.execute(query, [simulation_id]).fetchdf()
-        
+
         if violations.empty:
             return jsonify([])
-        
+
         # Convert to records format and format dates/JSON
-        violations_list = violations.to_dict(orient='records')
+        violations_list = violations.to_dict(orient="records")
         for item in violations_list:
-            if 'timestamp' in item and item['timestamp'] is not None:
-                item['timestamp'] = item['timestamp'].isoformat()
-            if 'raw_evaluation' in item and item['raw_evaluation'] is not None:
-                item['raw_evaluation'] = json.loads(item['raw_evaluation'])
-        
+            if "timestamp" in item and item["timestamp"] is not None:
+                item["timestamp"] = item["timestamp"].isoformat()
+            if "raw_evaluation" in item and item["raw_evaluation"] is not None:
+                item["raw_evaluation"] = json.loads(item["raw_evaluation"])
+
         return jsonify(violations_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/violations/summary', methods=['GET'])
+
+@app.route("/api/violations/summary", methods=["GET"])
 def get_violations_summary():
     """Get a summary of all violations across all simulations."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-    
+
     try:
         query = """
             SELECT 
@@ -324,28 +353,29 @@ def get_violations_summary():
                 SUM(other) as other
             FROM ethical_violations
         """
-        
+
         summary = conn.execute(query).fetchdf()
-        
+
         if summary.empty:
             return jsonify({})
-        
+
         # Convert to dictionary
         summary_dict = summary.iloc[0].to_dict()
-        
+
         return jsonify(summary_dict)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/power-seeking/summary', methods=['GET'])
+
+@app.route("/api/power-seeking/summary", methods=["GET"])
 def get_power_seeking_summary():
     """Get a summary of all power seeking behaviors across all simulations."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-    
+
     try:
         query = """
             SELECT 
@@ -356,28 +386,29 @@ def get_power_seeking_summary():
                 SUM(other_power) as other_power
             FROM power_seeking
         """
-        
+
         summary = conn.execute(query).fetchdf()
-        
+
         if summary.empty:
             return jsonify({})
-        
+
         # Convert to dictionary
         summary_dict = summary.iloc[0].to_dict()
-        
+
         return jsonify(summary_dict)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/disutility/summary', methods=['GET'])
+
+@app.route("/api/disutility/summary", methods=["GET"])
 def get_disutility_summary():
     """Get a summary of utility changes across all simulations."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-    
+
     try:
         query = """
             SELECT 
@@ -388,51 +419,55 @@ def get_disutility_summary():
                 AVG(utility_change) as average_utility_change
             FROM disutility
         """
-        
+
         summary = conn.execute(query).fetchdf()
-        
+
         if summary.empty:
             return jsonify({})
-        
+
         # Convert to dictionary
         summary_dict = summary.iloc[0].to_dict()
-        
+
         return jsonify(summary_dict)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/prompts', methods=['GET'])
+
+@app.route("/api/prompts", methods=["GET"])
 def get_prompts():
     """Get all prompt templates from YAML files in cesare/ starting with 'prompts-' and ending with .yaml."""
-    prompt_files = glob.glob(os.path.join(os.path.dirname(__file__), '../cesare/prompts-*.yaml'))
+    prompt_files = glob.glob(
+        os.path.join(os.path.dirname(__file__), "../cesare/prompts-*.yaml")
+    )
     result = {}
     for file_path in prompt_files:
         file_name = os.path.basename(file_path)
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 yaml_content = yaml.safe_load(f)
                 result[file_name] = yaml_content
         except Exception as e:
             result[file_name] = {"error": str(e)}
     return jsonify(result)
 
-@app.route('/api/experiments', methods=['GET'])
+
+@app.route("/api/experiments", methods=["GET"])
 def get_experiments():
     """Get all experiments."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-    
+
     try:
         # Check if experiments table exists
         tables = conn.execute("SHOW TABLES").fetchall()
         table_names = [table[0] for table in tables]
-        
-        if 'experiments' not in table_names:
+
+        if "experiments" not in table_names:
             return jsonify([])  # Return empty list if no experiments table
-        
+
         experiments = conn.execute("""
             SELECT 
                 e.*,
@@ -442,81 +477,86 @@ def get_experiments():
             GROUP BY e.experiment_id, e.experiment_name, e.description, e.created_time, e.total_simulations, e.completed_simulations, e.metadata
             ORDER BY e.created_time DESC
         """).fetchdf()
-        
+
         # Convert to records format for JSON serialization
-        experiments_list = experiments.to_dict(orient='records')
-        
+        experiments_list = experiments.to_dict(orient="records")
+
         # Format dates and JSON strings
         for exp in experiments_list:
-            if 'created_time' in exp and exp['created_time'] is not None:
-                exp['created_time'] = exp['created_time'].isoformat()
-            if 'metadata' in exp and exp['metadata'] is not None:
-                exp['metadata'] = json.loads(exp['metadata'])
-        
+            if "created_time" in exp and exp["created_time"] is not None:
+                exp["created_time"] = exp["created_time"].isoformat()
+            if "metadata" in exp and exp["metadata"] is not None:
+                exp["metadata"] = json.loads(exp["metadata"])
+
         return jsonify(experiments_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/experiments/<experiment_name>/simulations', methods=['GET'])
+
+@app.route("/api/experiments/<experiment_name>/simulations", methods=["GET"])
 def get_experiment_simulations(experiment_name):
     """Get all simulations for a specific experiment."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-    
+
     try:
         # Check if experiments table exists
         tables = conn.execute("SHOW TABLES").fetchall()
         table_names = [table[0] for table in tables]
-        
-        if 'experiments' not in table_names:
+
+        if "experiments" not in table_names:
             return jsonify([])  # Return empty list if no experiments table
-        
-        simulations = conn.execute("""
+
+        simulations = conn.execute(
+            """
             SELECT s.*, e.experiment_name
             FROM simulations s
             JOIN experiments e ON s.experiment_id = e.experiment_id
             WHERE e.experiment_name = ?
             ORDER BY s.start_time DESC
-        """, (experiment_name,)).fetchdf()
-        
+        """,
+            (experiment_name,),
+        ).fetchdf()
+
         # Convert to records format for JSON serialization
-        simulations_list = simulations.to_dict(orient='records')
-        
+        simulations_list = simulations.to_dict(orient="records")
+
         # Format dates and JSON strings
         for sim in simulations_list:
-            if 'start_time' in sim and sim['start_time'] is not None:
-                sim['start_time'] = sim['start_time'].isoformat()
-            if 'end_time' in sim and sim['end_time'] is not None:
-                sim['end_time'] = sim['end_time'].isoformat()
-            if 'config' in sim and sim['config'] is not None:
-                sim['config'] = json.loads(sim['config'])
-            if 'metadata' in sim and sim['metadata'] is not None:
-                sim['metadata'] = json.loads(sim['metadata'])
-        
+            if "start_time" in sim and sim["start_time"] is not None:
+                sim["start_time"] = sim["start_time"].isoformat()
+            if "end_time" in sim and sim["end_time"] is not None:
+                sim["end_time"] = sim["end_time"].isoformat()
+            if "config" in sim and sim["config"] is not None:
+                sim["config"] = json.loads(sim["config"])
+            if "metadata" in sim and sim["metadata"] is not None:
+                sim["metadata"] = json.loads(sim["metadata"])
+
         return jsonify(simulations_list)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-@app.route('/api/experiments/<experiment_name>/violations-summary', methods=['GET'])
+
+@app.route("/api/experiments/<experiment_name>/violations-summary", methods=["GET"])
 def get_experiment_violations_summary(experiment_name):
     """Get a summary of violations for all simulations in a specific experiment."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
-    
+
     try:
         # Check if experiments table exists
         tables = conn.execute("SHOW TABLES").fetchall()
         table_names = [table[0] for table in tables]
-        
-        if 'experiments' not in table_names:
+
+        if "experiments" not in table_names:
             return jsonify({"error": "Experiments table not found"}), 404
-        
+
         # Get violations summary for each simulation in the experiment
         query = """
             SELECT 
@@ -551,57 +591,73 @@ def get_experiment_violations_summary(experiment_name):
             GROUP BY s.simulation_id, s.start_time, s.total_steps, s.total_instructions, s.config, e.experiment_name
             ORDER BY s.start_time DESC
         """
-        
+
         summary = conn.execute(query, (experiment_name,)).fetchdf()
-        
+
         if summary.empty:
-            return jsonify({"error": f"No simulations found for experiment: {experiment_name}"}), 404
-        
+            return jsonify(
+                {"error": f"No simulations found for experiment: {experiment_name}"}
+            ), 404
+
         # Convert to records format and process
-        summary_list = summary.to_dict(orient='records')
-        
+        summary_list = summary.to_dict(orient="records")
+
         # Extract model information from config and format data
         for item in summary_list:
-            if 'start_time' in item and item['start_time'] is not None:
-                item['start_time'] = item['start_time'].isoformat()
-            if 'config' in item and item['config'] is not None:
-                config = json.loads(item['config'])
-                
+            if "start_time" in item and item["start_time"] is not None:
+                item["start_time"] = item["start_time"].isoformat()
+            if "config" in item and item["config"] is not None:
+                config = json.loads(item["config"])
+
                 # Handle both single agent and multi-agent configurations
-                models = config.get('models', {})
-                if 'agent' in models:
+                models = config.get("models", {})
+                if "agent" in models:
                     # Single agent configuration - extract name from the agent dict
-                    agent_config = models['agent']
+                    agent_config = models["agent"]
                     if isinstance(agent_config, dict):
-                        item['agent_model'] = agent_config.get('name', 'Unknown')
+                        item["agent_model"] = agent_config.get("name", "Unknown")
                     else:
-                        item['agent_model'] = str(agent_config)
-                elif 'agents' in models and isinstance(models['agents'], list) and len(models['agents']) > 0:
+                        item["agent_model"] = str(agent_config)
+                elif (
+                    "agents" in models
+                    and isinstance(models["agents"], list)
+                    and len(models["agents"]) > 0
+                ):
                     # Multi-agent configuration - use the first agent or combine names
-                    if len(models['agents']) == 1:
-                        item['agent_model'] = models['agents'][0].get('name', 'Unknown')
+                    if len(models["agents"]) == 1:
+                        item["agent_model"] = models["agents"][0].get("name", "Unknown")
                     else:
                         # Multiple agents - create a combined name
-                        agent_names = [agent.get('name', 'Unknown') for agent in models['agents']]
-                        item['agent_model'] = ', '.join(agent_names)
+                        agent_names = [
+                            agent.get("name", "Unknown") for agent in models["agents"]
+                        ]
+                        item["agent_model"] = ", ".join(agent_names)
                 else:
-                    item['agent_model'] = 'Unknown'
-                
-                item['environment_model'] = models.get('environment', {}).get('name', 'Unknown') if isinstance(models.get('environment'), dict) else models.get('environment', 'Unknown')
-                item['evaluator_model'] = models.get('evaluator', {}).get('name', 'Unknown') if isinstance(models.get('evaluator'), dict) else models.get('evaluator', 'Unknown')
-                
+                    item["agent_model"] = "Unknown"
+
+                item["environment_model"] = (
+                    models.get("environment", {}).get("name", "Unknown")
+                    if isinstance(models.get("environment"), dict)
+                    else models.get("environment", "Unknown")
+                )
+                item["evaluator_model"] = (
+                    models.get("evaluator", {}).get("name", "Unknown")
+                    if isinstance(models.get("evaluator"), dict)
+                    else models.get("evaluator", "Unknown")
+                )
+
                 # Keep config as parsed JSON for potential future use
-                item['config'] = config
+                item["config"] = config
             else:
-                item['agent_model'] = 'Unknown'
-                item['environment_model'] = 'Unknown'
-                item['evaluator_model'] = 'Unknown'
-        
+                item["agent_model"] = "Unknown"
+                item["environment_model"] = "Unknown"
+                item["evaluator_model"] = "Unknown"
+
         # Get additional metrics for ethical analysis
         enhanced_summary = []
         for item in summary_list:
-            simulation_id = item['simulation_id']
-            
+            simulation_id = item["simulation_id"]
+
             # Get power-seeking metrics
             try:
                 power_seeking_query = """
@@ -611,13 +667,19 @@ def get_experiment_violations_summary(experiment_name):
                     FROM ethical_violations 
                     WHERE simulation_id = ?
                 """
-                power_seeking_result = conn.execute(power_seeking_query, (simulation_id,)).fetchone()
-                item['total_power_seeking'] = power_seeking_result[0] if power_seeking_result else 0
-                item['avg_power_seeking'] = round(power_seeking_result[1], 2) if power_seeking_result else 0
+                power_seeking_result = conn.execute(
+                    power_seeking_query, (simulation_id,)
+                ).fetchone()
+                item["total_power_seeking"] = (
+                    power_seeking_result[0] if power_seeking_result else 0
+                )
+                item["avg_power_seeking"] = (
+                    round(power_seeking_result[1], 2) if power_seeking_result else 0
+                )
             except Exception:
-                item['total_power_seeking'] = 0
-                item['avg_power_seeking'] = 0
-            
+                item["total_power_seeking"] = 0
+                item["avg_power_seeking"] = 0
+
             # Get disutility metrics
             try:
                 disutility_query = """
@@ -627,36 +689,45 @@ def get_experiment_violations_summary(experiment_name):
                     FROM ethical_violations 
                     WHERE simulation_id = ?
                 """
-                disutility_result = conn.execute(disutility_query, (simulation_id,)).fetchone()
-                item['total_disutility'] = disutility_result[0] if disutility_result else 0
-                item['avg_disutility'] = round(disutility_result[1], 2) if disutility_result else 0
+                disutility_result = conn.execute(
+                    disutility_query, (simulation_id,)
+                ).fetchone()
+                item["total_disutility"] = (
+                    disutility_result[0] if disutility_result else 0
+                )
+                item["avg_disutility"] = (
+                    round(disutility_result[1], 2) if disutility_result else 0
+                )
             except Exception:
-                item['total_disutility'] = 0
-                item['avg_disutility'] = 0
-            
+                item["total_disutility"] = 0
+                item["avg_disutility"] = 0
+
             # Calculate ethical risk score (weighted combination of violations, power-seeking, and disutility)
             violation_weight = 3
             power_seeking_weight = 2
             disutility_weight = 1
-            
+
             ethical_risk_score = (
-                item['total_violations'] * violation_weight +
-                item['total_power_seeking'] * power_seeking_weight +
-                item['total_disutility'] * disutility_weight
+                item["total_violations"] * violation_weight
+                + item["total_power_seeking"] * power_seeking_weight
+                + item["total_disutility"] * disutility_weight
             )
-            item['ethical_risk_score'] = ethical_risk_score
-            
+            item["ethical_risk_score"] = ethical_risk_score
+
             enhanced_summary.append(item)
-        
-        return jsonify({
-            "experiment_name": experiment_name,
-            "simulations": enhanced_summary,
-            "total_simulations": len(enhanced_summary)
-        })
+
+        return jsonify(
+            {
+                "experiment_name": experiment_name,
+                "simulations": enhanced_summary,
+                "total_simulations": len(enhanced_summary),
+            }
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000) 
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)

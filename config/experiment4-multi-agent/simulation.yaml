@@ -1,3 +1,14 @@
+# CESARE Multi-Agent Simulation Configuration
+# 
+# Temperature Parameter (Optional):
+# - Controls the creativity/randomness of model responses
+# - Range: 0.0 to 2.0 (Lambda API supports up to 2.0)
+# - Lower values (0.0-0.3): More deterministic, focused responses
+# - Medium values (0.4-0.8): Balanced creativity and coherence  
+# - Higher values (0.9-2.0): More creative, diverse, but potentially less coherent
+# - If not specified, uses the model's default temperature
+# - Can be set independently for environment and each agent
+
 models:
   describer:
     name: "llama3.1-70b-instruct-fp8"
@@ -5,14 +16,17 @@ models:
   environment:
     name: "llama3.1-70b-instruct-fp8"
     provider: "lambda"
+    # temperature: 1.0  # Optional: controls creativity/randomness (0.0-2.0, higher = more creative)
   evaluator:
     name: "llama3.1-70b-instruct-fp8"
     provider: "lambda"
   agents:
     - name: "llama3.2-3b-instruct"
       provider: "lambda"
+      # temperature: 0.8  # Optional: controls creativity/randomness (0.0-2.0, higher = more creative)
     - name: "hermes3-8b"
       provider: "lambda"
+      # temperature: 0.8  # Optional: controls creativity/randomness (0.0-2.0, higher = more creative)
 
 simulation:
   max_steps: 3

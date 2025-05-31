@@ -45,12 +45,12 @@ def display_simulations(db, experiment_filter=None):
     # Extract and format model information
     def extract_agent_model(row):
         try:
-            config = json.loads(row['config'])
-            return config.get('models', {}).get('agent', 'Unknown')
+            config = json.loads(row["config"])
+            return config.get("models", {}).get("agent", "Unknown")
         except (json.JSONDecodeError, KeyError, TypeError):
             return "Unknown"
-            
-    simulations['agent_model'] = simulations.apply(extract_agent_model, axis=1)
+
+    simulations["agent_model"] = simulations.apply(extract_agent_model, axis=1)
 
     # Display simulations table
     st.dataframe(
@@ -60,7 +60,7 @@ def display_simulations(db, experiment_filter=None):
                 "start_time_formatted",
                 "total_steps",
                 "total_instructions",
-                "agent_model"
+                "agent_model",
             ]
         ],
         column_config={
@@ -481,93 +481,113 @@ def instructions_heatmap(db):
 def display_experiment_analysis(db, experiment_name):
     """Display analysis for a specific experiment."""
     st.header(f"Experiment Analysis: {experiment_name}")
-    
+
     # Get all simulations for this experiment
     simulations = db.get_experiment_simulations(experiment_name)
-    
+
     if simulations.empty:
         st.info(f"No simulations found for experiment: {experiment_name}")
         return
-    
+
     # Extract metadata from simulations
     experiment_data = []
     for _, sim in simulations.iterrows():
         try:
-            config = json.loads(sim['config'])
-            agent_model = config.get('models', {}).get('agent', 'Unknown')
-            
+            config = json.loads(sim["config"])
+            agent_model = config.get("models", {}).get("agent", "Unknown")
+
             # Extract violation counts from metadata
-            metadata = json.loads(sim['metadata'])
-            violations = metadata.get('metrics', {}).get('ethical_violations', {})
+            metadata = json.loads(sim["metadata"])
+            violations = metadata.get("metrics", {}).get("ethical_violations", {})
             total_violations = sum(violations.values()) if violations else 0
-            
+
             # Get evaluation data
-            eval_df = db.get_simulation_evaluations(sim['simulation_id'])
-            violation_types = len([col for col in eval_df.columns if col.endswith('_harm') and eval_df[col].sum() > 0])
-            
-            experiment_data.append({
-                'simulation_id': sim['simulation_id'],
-                'agent_model': agent_model,
-                'total_steps': sim['total_steps'],
-                'total_violations': total_violations,
-                'violation_types': violation_types,
-                'start_time': sim['start_time']
-            })
+            eval_df = db.get_simulation_evaluations(sim["simulation_id"])
+            violation_types = len(
+                [
+                    col
+                    for col in eval_df.columns
+                    if col.endswith("_harm") and eval_df[col].sum() > 0
+                ]
+            )
+
+            experiment_data.append(
+                {
+                    "simulation_id": sim["simulation_id"],
+                    "agent_model": agent_model,
+                    "total_steps": sim["total_steps"],
+                    "total_violations": total_violations,
+                    "violation_types": violation_types,
+                    "start_time": sim["start_time"],
+                }
+            )
         except Exception as e:
             st.error(f"Error processing simulation {sim['simulation_id']}: {e}")
-    
+
     if not experiment_data:
         st.warning("Could not extract experiment data from simulations")
         return
-    
+
     # Convert to DataFrame for analysis
     exp_df = pd.DataFrame(experiment_data)
-    
+
     # Display summary statistics
     st.subheader("Model Comparison")
-    
+
     # Create a summary table grouped by model
-    model_summary = exp_df.groupby('agent_model').agg({
-        'simulation_id': 'count',
-        'total_violations': 'mean',
-        'violation_types': 'mean',
-        'total_steps': 'mean'
-    }).reset_index()
-    
-    model_summary.columns = ['Model', 'Simulations', 'Avg Violations', 'Avg Violation Types', 'Avg Steps']
-    
+    model_summary = (
+        exp_df.groupby("agent_model")
+        .agg(
+            {
+                "simulation_id": "count",
+                "total_violations": "mean",
+                "violation_types": "mean",
+                "total_steps": "mean",
+            }
+        )
+        .reset_index()
+    )
+
+    model_summary.columns = [
+        "Model",
+        "Simulations",
+        "Avg Violations",
+        "Avg Violation Types",
+        "Avg Steps",
+    ]
+
     # Format the numeric columns
-    for col in ['Avg Violations', 'Avg Violation Types', 'Avg Steps']:
+    for col in ["Avg Violations", "Avg Violation Types", "Avg Steps"]:
         model_summary[col] = model_summary[col].round(2)
-    
+
     # Display the summary table
     st.dataframe(model_summary, use_container_width=True)
-    
+
     # Create visualization comparing models
     st.subheader("Violation Comparison")
-    
+
     fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(x='agent_model', y='total_violations', data=exp_df, ax=ax)
+    sns.barplot(x="agent_model", y="total_violations", data=exp_df, ax=ax)
     ax.set_title("Total Violations by Model")
     ax.set_xlabel("Model")
     ax.set_ylabel("Total Violations")
     plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
     st.pyplot(fig)
-    
+
     # Show individual simulation details
     st.subheader("Individual Simulations")
     st.dataframe(
-        exp_df.sort_values('start_time', ascending=False),
+        exp_df.sort_values("start_time", ascending=False),
         use_container_width=True,
         column_config={
-            'simulation_id': 'Simulation ID',
-            'agent_model': 'Model',
-            'total_steps': 'Steps',
-            'total_violations': 'Violations',
-            'violation_types': 'Violation Types',
-            'start_time': 'Start Time'
-        }
+            "simulation_id": "Simulation ID",
+            "agent_model": "Model",
+            "total_steps": "Steps",
+            "total_violations": "Violations",
+            "violation_types": "Violation Types",
+            "start_time": "Start Time",
+        },
     )
 
 
@@ -593,24 +613,25 @@ def main():
     except Exception as e:
         st.sidebar.warning(f"Experiments not available: {str(e)}")
         experiments = pd.DataFrame()  # Empty dataframe
-    
+
     # Function to generate a color from experiment name
     def get_experiment_color(exp_name):
         import hashlib
+
         hash_obj = hashlib.md5(exp_name.encode())
         hash_hex = hash_obj.hexdigest()
         r = int(hash_hex[0:2], 16) % 200 + 55  # Avoid too dark colors
         g = int(hash_hex[2:4], 16) % 200 + 55
         b = int(hash_hex[4:6], 16) % 200 + 55
         return f"rgb({r}, {g}, {b})"
-    
+
     selected_experiment = None
     if not experiments.empty:
         # Display experiment boxes
         for _, exp in experiments.iterrows():
-            exp_name = exp['experiment_name']
+            exp_name = exp["experiment_name"]
             exp_color = get_experiment_color(exp_name)
-            
+
             # Create a clickable box for each experiment
             exp_box = st.sidebar.container()
             exp_box.markdown(
@@ -624,30 +645,30 @@ def main():
                     cursor: pointer;
                     ">
                     <b>{exp_name}</b><br>
-                    Simulations: {exp['actual_simulations']}<br>
-                    Created: {exp['created_time'].strftime('%Y-%m-%d')}
+                    Simulations: {exp["actual_simulations"]}<br>
+                    Created: {exp["created_time"].strftime("%Y-%m-%d")}
                 </div>
-                """, 
-                unsafe_allow_html=True
+                """,
+                unsafe_allow_html=True,
             )
-            
+
             # Add a button to select this experiment
             if exp_box.button("Select", key=f"exp_{exp_name}"):
                 selected_experiment = exp_name
     else:
         st.sidebar.info("No experiments found")
-    
+
     # Add option to clear experiment filter
     if selected_experiment and st.sidebar.button("Clear Experiment Filter"):
         selected_experiment = None
-    
+
     st.sidebar.markdown("---")
 
     # Create navigation options with experiment analysis page
     page_options = ["Simulation Explorer", "Violation Analysis", "Advanced Views"]
     if selected_experiment:
         page_options.insert(0, "Experiment Analysis")
-    
+
     page = st.sidebar.radio("Select a page:", options=page_options)
 
     if page == "Experiment Analysis" and selected_experiment:
@@ -655,10 +676,12 @@ def main():
     elif page == "Simulation Explorer":
         if selected_experiment:
             st.info(f"Filtering simulations for experiment: {selected_experiment}")
-            selected_sim = display_simulations(db, experiment_filter=selected_experiment)
+            selected_sim = display_simulations(
+                db, experiment_filter=selected_experiment
+            )
         else:
             selected_sim = display_simulations(db)
-        
+
         if selected_sim:
             display_simulation_details(db, selected_sim)
     elif page == "Violation Analysis":

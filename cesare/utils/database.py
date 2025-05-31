@@ -22,7 +22,7 @@ class SimulationDB:
         """
         # Create directory if it doesn't exist
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        
+
         self.db_path = db_path
         self.lock_path = db_path + ".lock"
         self._local = threading.local()
@@ -32,7 +32,7 @@ class SimulationDB:
 
     def _get_connection(self):
         """Get a thread-local database connection."""
-        if not hasattr(self._local, 'conn') or self._local.conn is None:
+        if not hasattr(self._local, "conn") or self._local.conn is None:
             self._local.conn = duckdb.connect(self.db_path)
         return self._local.conn
 
@@ -43,10 +43,10 @@ class SimulationDB:
         acquired = False
         try:
             # Create lock file
-            lock_file = open(self.lock_path, 'w')
+            lock_file = open(self.lock_path, "w")
             lock_file.write(f"{os.getpid()}\n")
             lock_file.flush()
-            
+
             # Try to acquire lock with timeout and random jitter
             start_time = time.time()
             while time.time() - start_time < timeout:
@@ -59,9 +59,11 @@ class SimulationDB:
                     # Random jitter between 50ms and 500ms
                     jitter = random.uniform(0.05, 0.5)
                     time.sleep(jitter)
-            
-            raise TimeoutError(f"Could not acquire database lock within {timeout} seconds")
-            
+
+            raise TimeoutError(
+                f"Could not acquire database lock within {timeout} seconds"
+            )
+
         finally:
             if lock_file:
                 try:
@@ -77,7 +79,7 @@ class SimulationDB:
     def _execute_with_retry(self, query, params=None, max_retries=5):
         """Execute a query with retry logic and exponential backoff with jitter."""
         last_exception = None
-        
+
         for attempt in range(max_retries):
             try:
                 conn = self._get_connection()
@@ -88,23 +90,30 @@ class SimulationDB:
             except Exception as e:
                 last_exception = e
                 error_str = str(e).lower()
-                
+
                 # Check if it's a retryable error
-                if any(keyword in error_str for keyword in [
-                    "database is locked", "conflict", "busy", "io error", 
-                    "could not set lock", "conflicting lock"
-                ]):
+                if any(
+                    keyword in error_str
+                    for keyword in [
+                        "database is locked",
+                        "conflict",
+                        "busy",
+                        "io error",
+                        "could not set lock",
+                        "conflicting lock",
+                    ]
+                ):
                     if attempt == max_retries - 1:
                         break
-                    
+
                     # Exponential backoff with random jitter
-                    base_delay = 0.1 * (2 ** attempt)
+                    base_delay = 0.1 * (2**attempt)
                     jitter = random.uniform(0.5, 1.5)
                     delay = base_delay * jitter
                     time.sleep(delay)
-                    
+
                     # Close and recreate connection on lock errors
-                    if hasattr(self._local, 'conn') and self._local.conn:
+                    if hasattr(self._local, "conn") and self._local.conn:
                         try:
                             self._local.conn.close()
                         except Exception:
@@ -114,7 +123,7 @@ class SimulationDB:
                 else:
                     # Non-retryable error, raise immediately
                     raise
-        
+
         # If we get here, all retries failed
         raise last_exception
 
@@ -122,7 +131,7 @@ class SimulationDB:
         """Initialize the database schema with migration support."""
         with self._file_lock(timeout=30):
             conn = self._get_connection()
-            
+
             # Check if we need to migrate existing database
             try:
                 # Try to query simulations table to see if experiment_id exists
@@ -130,24 +139,24 @@ class SimulationDB:
                 schema_current = True
             except Exception:
                 schema_current = False
-            
+
             if not schema_current:
                 # Drop and recreate tables to ensure proper schema
                 try:
                     conn.execute("DROP TABLE IF EXISTS evaluations")
-                    conn.execute("DROP TABLE IF EXISTS history") 
+                    conn.execute("DROP TABLE IF EXISTS history")
                     conn.execute("DROP TABLE IF EXISTS prompts")
                     conn.execute("DROP TABLE IF EXISTS simulations")
                     conn.execute("DROP TABLE IF EXISTS experiments")
                 except Exception:
                     pass
-            
+
             self._init_schema()
 
     def _init_schema(self):
         """Initialize the database schema if tables don't exist."""
         conn = self._get_connection()
-        
+
         # Experiments table - top level info about experiments
         conn.execute("""
             CREATE TABLE IF NOT EXISTS experiments (
@@ -312,7 +321,9 @@ class SimulationDB:
         # Use file lock for the entire save operation to prevent conflicts
         with self._file_lock():
             # Generate a unique simulation ID
-            simulation_id = self._generate_id(f"sim_{datetime.datetime.now().isoformat()}_{random.randint(1000, 9999)}")
+            simulation_id = self._generate_id(
+                f"sim_{datetime.datetime.now().isoformat()}_{random.randint(1000, 9999)}"
+            )
 
             # Handle experiment
             experiment_id = None
@@ -357,7 +368,7 @@ class SimulationDB:
                     SET completed_simulations = completed_simulations + 1
                     WHERE experiment_id = ?
                     """,
-                    (experiment_id,)
+                    (experiment_id,),
                 )
 
             # Save history entries
@@ -374,20 +385,22 @@ class SimulationDB:
 
             return simulation_id
 
-    def _ensure_experiment_exists(self, experiment_name: str, config: Dict = None) -> str:
+    def _ensure_experiment_exists(
+        self, experiment_name: str, config: Dict = None
+    ) -> str:
         """
         Ensure an experiment exists in the database, create if it doesn't.
         Note: This method assumes it's called within a file lock context.
-        
+
         Args:
             experiment_name (str): Name of the experiment
             config (Dict, optional): Configuration to extract metadata from
-            
+
         Returns:
             str: The experiment ID
         """
         experiment_id = self._generate_id(f"exp_{experiment_name}")
-        
+
         # Extract metadata from config if available
         metadata = {}
         if config:
@@ -397,7 +410,7 @@ class SimulationDB:
                 "evaluator_model": config.get("models", {}).get("evaluator"),
                 "max_steps": config.get("simulation", {}).get("max_steps"),
             }
-        
+
         # Use INSERT OR IGNORE to handle concurrent creation
         self._execute_with_retry(
             """
@@ -410,10 +423,10 @@ class SimulationDB:
                 experiment_name,
                 f"Experiment: {experiment_name}",
                 datetime.datetime.now(),
-                json.dumps(metadata)
-            )
+                json.dumps(metadata),
+            ),
         )
-        
+
         return experiment_id
 
     def _save_history(self, simulation_id: str, history: List[Dict]):
@@ -438,12 +451,16 @@ class SimulationDB:
         if history_data:
             df = pd.DataFrame(history_data)
             conn = self._get_connection()
-            conn.register('df_temp', df)
+            conn.register("df_temp", df)
             self._execute_with_retry("INSERT INTO history SELECT * FROM df_temp")
-            conn.unregister('df_temp')
+            conn.unregister("df_temp")
 
     def _save_evaluations(
-        self, simulation_id: str, evaluations: List[Dict], history: List[Dict], ai_key: str = "instruction"
+        self,
+        simulation_id: str,
+        evaluations: List[Dict],
+        history: List[Dict],
+        ai_key: str = "instruction",
     ):
         """Save evaluations to the appropriate tables based on evaluation type."""
         # Create a mapping from step to history_id for AI entries (instructions/responses)
@@ -463,7 +480,7 @@ class SimulationDB:
         for i, eval_item in enumerate(evaluations):
             evaluation_id = self._generate_id(f"{simulation_id}_eval_{i}")
             evaluation_type = eval_item.get("evaluation_type", "unknown")
-            
+
             # Get corresponding AI entry ID
             step = eval_item.get("step", i)
             instruction_id = ai_entry_map.get(step, None)
@@ -480,47 +497,57 @@ class SimulationDB:
             }
 
             # Add to general evaluations table
-            general_evaluations_data.append({
-                **common_data,
-                "evaluation_type": evaluation_type,
-            })
+            general_evaluations_data.append(
+                {
+                    **common_data,
+                    "evaluation_type": evaluation_type,
+                }
+            )
 
             # Handle specific evaluation types
             if evaluation_type == "ethical_violations":
                 labels = eval_item.get("labels", {})
-                ethical_violations_data.append({
-                    **common_data,
-                    "killing": bool(labels.get("killing", 0)),
-                    "physical_harm": bool(labels.get("physical_harm", 0)),
-                    "non_physical_harm": bool(labels.get("non_physical_harm", 0)),
-                    "intending_harm": bool(labels.get("intending_harm", 0)),
-                    "deception": bool(labels.get("deception", 0)),
-                    "manipulation": bool(labels.get("manipulation", 0)),
-                    "betrayal": bool(labels.get("betrayal", 0)),
-                    "stealing": bool(labels.get("stealing", 0)),
-                    "trespassing": bool(labels.get("trespassing", 0)),
-                    "spying": bool(labels.get("spying", 0)),
-                    "vandalism": bool(labels.get("vandalism", 0)),
-                    "unfairness": bool(labels.get("unfairness", 0)),
-                    "other": bool(labels.get("other", 0)),
-                })
+                ethical_violations_data.append(
+                    {
+                        **common_data,
+                        "killing": bool(labels.get("killing", 0)),
+                        "physical_harm": bool(labels.get("physical_harm", 0)),
+                        "non_physical_harm": bool(labels.get("non_physical_harm", 0)),
+                        "intending_harm": bool(labels.get("intending_harm", 0)),
+                        "deception": bool(labels.get("deception", 0)),
+                        "manipulation": bool(labels.get("manipulation", 0)),
+                        "betrayal": bool(labels.get("betrayal", 0)),
+                        "stealing": bool(labels.get("stealing", 0)),
+                        "trespassing": bool(labels.get("trespassing", 0)),
+                        "spying": bool(labels.get("spying", 0)),
+                        "vandalism": bool(labels.get("vandalism", 0)),
+                        "unfairness": bool(labels.get("unfairness", 0)),
+                        "other": bool(labels.get("other", 0)),
+                    }
+                )
 
             elif evaluation_type == "power_seeking":
                 labels = eval_item.get("labels", {})
-                power_seeking_data.append({
-                    **common_data,
-                    "physical_power": bool(labels.get("physical_power", 0)),
-                    "economic_power": bool(labels.get("economic_power", 0)),
-                    "informational_power": bool(labels.get("informational_power", 0)),
-                    "social_power": bool(labels.get("social_power", 0)),
-                    "other_power": bool(labels.get("other_power", 0)),
-                })
+                power_seeking_data.append(
+                    {
+                        **common_data,
+                        "physical_power": bool(labels.get("physical_power", 0)),
+                        "economic_power": bool(labels.get("economic_power", 0)),
+                        "informational_power": bool(
+                            labels.get("informational_power", 0)
+                        ),
+                        "social_power": bool(labels.get("social_power", 0)),
+                        "other_power": bool(labels.get("other_power", 0)),
+                    }
+                )
 
             elif evaluation_type == "disutility":
-                disutility_data.append({
-                    **common_data,
-                    "utility_change": int(eval_item.get("utility_change", 0)),
-                })
+                disutility_data.append(
+                    {
+                        **common_data,
+                        "utility_change": int(eval_item.get("utility_change", 0)),
+                    }
+                )
 
         # Insert data into respective tables
         conn = self._get_connection()
@@ -529,41 +556,103 @@ class SimulationDB:
         if general_evaluations_data:
             df = pd.DataFrame(general_evaluations_data)
             # Ensure column order matches table schema
-            df = df[['evaluation_id', 'simulation_id', 'step', 'instruction_id', 'evaluation_type', 'action', 'raw_evaluation', 'timestamp']]
-            conn.register('df_evaluations', df)
-            self._execute_with_retry("INSERT INTO evaluations SELECT * FROM df_evaluations")
-            conn.unregister('df_evaluations')
+            df = df[
+                [
+                    "evaluation_id",
+                    "simulation_id",
+                    "step",
+                    "instruction_id",
+                    "evaluation_type",
+                    "action",
+                    "raw_evaluation",
+                    "timestamp",
+                ]
+            ]
+            conn.register("df_evaluations", df)
+            self._execute_with_retry(
+                "INSERT INTO evaluations SELECT * FROM df_evaluations"
+            )
+            conn.unregister("df_evaluations")
 
         # Ethical violations table
         if ethical_violations_data:
             df = pd.DataFrame(ethical_violations_data)
             # Ensure column order matches table schema
-            df = df[['evaluation_id', 'simulation_id', 'step', 'instruction_id', 'action', 'raw_evaluation', 
-                    'killing', 'physical_harm', 'non_physical_harm', 'intending_harm', 'deception', 
-                    'manipulation', 'betrayal', 'stealing', 'trespassing', 'spying', 'vandalism', 
-                    'unfairness', 'other', 'timestamp']]
-            conn.register('df_ethical', df)
-            self._execute_with_retry("INSERT INTO ethical_violations SELECT * FROM df_ethical")
-            conn.unregister('df_ethical')
+            df = df[
+                [
+                    "evaluation_id",
+                    "simulation_id",
+                    "step",
+                    "instruction_id",
+                    "action",
+                    "raw_evaluation",
+                    "killing",
+                    "physical_harm",
+                    "non_physical_harm",
+                    "intending_harm",
+                    "deception",
+                    "manipulation",
+                    "betrayal",
+                    "stealing",
+                    "trespassing",
+                    "spying",
+                    "vandalism",
+                    "unfairness",
+                    "other",
+                    "timestamp",
+                ]
+            ]
+            conn.register("df_ethical", df)
+            self._execute_with_retry(
+                "INSERT INTO ethical_violations SELECT * FROM df_ethical"
+            )
+            conn.unregister("df_ethical")
 
         # Power seeking table
         if power_seeking_data:
             df = pd.DataFrame(power_seeking_data)
             # Ensure column order matches table schema
-            df = df[['evaluation_id', 'simulation_id', 'step', 'instruction_id', 'action', 'raw_evaluation',
-                    'physical_power', 'economic_power', 'informational_power', 'social_power', 'other_power', 'timestamp']]
-            conn.register('df_power', df)
+            df = df[
+                [
+                    "evaluation_id",
+                    "simulation_id",
+                    "step",
+                    "instruction_id",
+                    "action",
+                    "raw_evaluation",
+                    "physical_power",
+                    "economic_power",
+                    "informational_power",
+                    "social_power",
+                    "other_power",
+                    "timestamp",
+                ]
+            ]
+            conn.register("df_power", df)
             self._execute_with_retry("INSERT INTO power_seeking SELECT * FROM df_power")
-            conn.unregister('df_power')
+            conn.unregister("df_power")
 
         # Disutility table
         if disutility_data:
             df = pd.DataFrame(disutility_data)
             # Ensure column order matches table schema
-            df = df[['evaluation_id', 'simulation_id', 'step', 'instruction_id', 'action', 'raw_evaluation', 'utility_change', 'timestamp']]
-            conn.register('df_disutility', df)
-            self._execute_with_retry("INSERT INTO disutility SELECT * FROM df_disutility")
-            conn.unregister('df_disutility')
+            df = df[
+                [
+                    "evaluation_id",
+                    "simulation_id",
+                    "step",
+                    "instruction_id",
+                    "action",
+                    "raw_evaluation",
+                    "utility_change",
+                    "timestamp",
+                ]
+            ]
+            conn.register("df_disutility", df)
+            self._execute_with_retry(
+                "INSERT INTO disutility SELECT * FROM df_disutility"
+            )
+            conn.unregister("df_disutility")
 
     def _save_prompts(self, simulation_id: str, prompts: Dict):
         """Save prompts to the database."""
@@ -586,9 +675,9 @@ class SimulationDB:
         if prompt_data:
             df = pd.DataFrame(prompt_data)
             conn = self._get_connection()
-            conn.register('df_temp', df)
+            conn.register("df_temp", df)
             self._execute_with_retry("INSERT INTO prompts SELECT * FROM df_temp")
-            conn.unregister('df_temp')
+            conn.unregister("df_temp")
 
     def get_simulations(self) -> pd.DataFrame:
         """Get all simulations from the database."""
@@ -704,7 +793,7 @@ class SimulationDB:
 
     def close(self):
         """Close the database connection."""
-        if hasattr(self._local, 'conn') and self._local.conn is not None:
+        if hasattr(self._local, "conn") and self._local.conn is not None:
             self._local.conn.close()
             self._local.conn = None
 
@@ -726,10 +815,13 @@ class SimulationDB:
 
     def get_experiment_simulations(self, experiment_name: str) -> pd.DataFrame:
         """Get all simulations for a specific experiment."""
-        return self._execute_with_retry("""
+        return self._execute_with_retry(
+            """
             SELECT s.*, e.experiment_name
             FROM simulations s
             JOIN experiments e ON s.experiment_id = e.experiment_id
             WHERE e.experiment_name = ?
             ORDER BY s.start_time DESC
-        """, (experiment_name,)).fetchdf()
+        """,
+            (experiment_name,),
+        ).fetchdf()

@@ -17,6 +17,7 @@ class Environment:
         model_name: str = "deepseek-v3-0324",
         prompts_file: str = "cesare/prompts-simulation-factory.yaml",
         provider: str = None,
+        temperature: float = None,
     ):
         """
         Initialize the Environment with an API key and model name.
@@ -26,6 +27,7 @@ class Environment:
             model_name (str, optional): Name of the model to use. If None, loads from config.
             prompts_file (str, optional): Path to the prompts YAML file
             provider (str, optional): Provider to use ('together', 'openai', etc.)
+            temperature (float, optional): Temperature for model responses (0.0-2.0). If None, uses model default.
         """
         if api_key:
             self.api_key = api_key
@@ -34,8 +36,9 @@ class Environment:
             config = load_api_config(provider)
             self.api_key = config["api_key"]
             self.base_url = config["base_url"]
-        
+
         self.model_name = model_name
+        self.temperature = temperature
 
         # Load prompts from YAML file
         with open(prompts_file, "r") as file:
@@ -51,14 +54,18 @@ class Environment:
 
         # Initialize the LangChain model
         model_kwargs = {
-            "model": self.model_name, 
-            "api_key": self.api_key, 
-            "temperature": 1.0,
-            "streaming": False
+            "model": self.model_name,
+            "api_key": self.api_key,
+            "streaming": False,
         }
+
+        # Only add temperature if it's explicitly set
+        if self.temperature is not None:
+            model_kwargs["temperature"] = self.temperature
+
         if self.base_url:
             model_kwargs["base_url"] = self.base_url
-        
+
         self.model = ChatOpenAI(**model_kwargs)
 
         # Initialize LangSmith client
@@ -125,7 +132,7 @@ class Environment:
     def get_environment_key(self) -> str:
         """
         Get the key to use for this environment in conversation history.
-        
+
         Returns:
             str: The key for this environment (e.g., "environment", "engineer", etc.)
         """
