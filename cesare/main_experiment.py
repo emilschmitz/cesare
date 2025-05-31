@@ -31,7 +31,7 @@ class ExperimentRunner:
         ]
         
     def get_config_files(self) -> List[str]:
-        """Get all YAML config files in the experiment folder."""
+        """Get all YAML config files in the experiment folder, expanding multi-agent configs."""
         config_path = Path(self.experiment_folder)
         if not config_path.exists():
             raise ValueError(f"Experiment folder {self.experiment_folder} does not exist")
@@ -40,12 +40,54 @@ class ExperimentRunner:
         if not config_files:
             raise ValueError(f"No YAML config files found in {self.experiment_folder}")
         
-        return [str(f) for f in config_files]
+        # Expand multi-agent configs into separate virtual config files
+        expanded_configs = []
+        for config_file in config_files:
+            try:
+                with open(config_file, 'r') as f:
+                    config = yaml.safe_load(f)
+                
+                models = config.get("models", {})
+                if "agents" in models and isinstance(models["agents"], list):
+                    # Multi-agent config - create virtual configs for each agent
+                    for i, agent in enumerate(models["agents"]):
+                        virtual_config_name = f"{config_file.stem}-agent{i+1}-{agent['name'].replace('/', '-')}"
+                        expanded_configs.append({
+                            'file_path': str(config_file),
+                            'virtual_name': virtual_config_name,
+                            'agent_index': i,
+                            'agent_name': agent['name'],
+                            'agent_provider': agent['provider']
+                        })
+                else:
+                    # Single agent config - keep as is
+                    expanded_configs.append({
+                        'file_path': str(config_file),
+                        'virtual_name': config_file.stem,
+                        'agent_index': None,
+                        'agent_name': models.get('agent', {}).get('name', 'unknown'),
+                        'agent_provider': models.get('agent', {}).get('provider', 'unknown')
+                    })
+            except Exception as e:
+                print(f"Warning: Could not parse {config_file}: {e}")
+                # Keep the file anyway for error handling
+                expanded_configs.append({
+                    'file_path': str(config_file),
+                    'virtual_name': config_file.stem,
+                    'agent_index': None,
+                    'agent_name': 'unknown',
+                    'agent_provider': 'unknown'
+                })
+        
+        return expanded_configs
     
-    def run_single_simulation(self, config_file: str, progress_callback=None) -> Dict:
-        """Run a single simulation with the given config."""
+    def run_single_simulation(self, config_info: dict, progress_callback=None) -> Dict:
+        """Run a single simulation with the given config info."""
         start_time = time.time()
-        config_name = Path(config_file).stem
+        config_name = config_info['virtual_name']
+        config_file = config_info['file_path']
+        agent_index = config_info['agent_index']
+        agent_name = config_info['agent_name']
         
         if progress_callback:
             progress_callback(f"Starting simulation: {config_name}", 0)
@@ -55,14 +97,21 @@ class ExperimentRunner:
             with open(config_file, 'r') as f:
                 config = yaml.safe_load(f)
             
+            # If this is a multi-agent config, modify it to use the specific agent
+            if agent_index is not None:
+                models = config["models"]
+                selected_agent = models["agents"][agent_index]
+                # Replace the agents list with a single agent
+                config["models"]["agent"] = selected_agent
+                del config["models"]["agents"]
+            
             # Add experiment metadata to config
             config['experiment'] = {
                 'name': self.experiment_name,
-                'config_file': os.path.basename(config_file)
+                'config_file': os.path.basename(config_file),
+                'virtual_config': config_name,
+                'agent_name': agent_name
             }
-            
-            # Extract agent model name for reporting (new format only)
-            agent_model_name = config.get('models', {}).get('agent', {}).get('name', 'unknown')
             
             # Use local prompt files from the experiment folder
             experiment_path = Path(self.experiment_folder)
@@ -111,7 +160,7 @@ class ExperimentRunner:
                 'status': 'success',
                 'config_file': config_file,
                 'config_name': config_name,
-                'model': agent_model_name,
+                'model': agent_name,
                 'duration': duration
             }
             
@@ -126,20 +175,20 @@ class ExperimentRunner:
                 'config_file': config_file,
                 'config_name': config_name,
                 'error': str(e),
-                'model': 'unknown',
+                'model': agent_name,
                 'duration': duration
             }
     
     def run_experiment(self, parallel: bool = True) -> List[Dict]:
         """Run all simulations in the experiment."""
-        config_files = self.get_config_files()
+        config_infos = self.get_config_files()
         
-        if not config_files:
+        if not config_infos:
             print("No configuration files found!")
             return []
         
         print(f"\nStarting experiment: {self.experiment_name}")
-        print(f"Found {len(config_files)} configurations")
+        print(f"Found {len(config_infos)} simulation configurations")
         print(f"Parallel execution: {parallel}")
         print("-" * 50)
         
@@ -154,33 +203,33 @@ class ExperimentRunner:
             progress_data = {}
             progress_lock = threading.Lock()
             
-            def update_progress(config_file, message, percent):
+            def update_progress(config_info, message, percent):
+                config_name = config_info['virtual_name']
                 with progress_lock:
-                    progress_data[config_file] = {'message': message, 'percent': percent}
+                    progress_data[config_name] = {'message': message, 'percent': percent}
                     # Print progress update
-                    config_name = Path(config_file).stem
                     print(f"[{datetime.now().strftime('%H:%M:%S')}] {config_name}: {message} ({percent:.0f}%)")
             
-            def run_with_progress(config_file):
+            def run_with_progress(config_info):
                 return self.run_single_simulation(
-                    config_file, 
-                    progress_callback=lambda msg, pct: update_progress(config_file, msg, pct)
+                    config_info, 
+                    progress_callback=lambda msg, pct: update_progress(config_info, msg, pct)
                 )
             
-            with ThreadPoolExecutor(max_workers=min(len(config_files), 6)) as executor:
+            with ThreadPoolExecutor(max_workers=min(len(config_infos), 6)) as executor:
                 # Submit all tasks
                 future_to_config = {
-                    executor.submit(run_with_progress, config_file): config_file 
-                    for config_file in config_files
+                    executor.submit(run_with_progress, config_info): config_info 
+                    for config_info in config_infos
                 }
                 
                 results = []
                 completed = 0
-                total = len(config_files)
+                total = len(config_infos)
                 
                 # Process completed tasks
                 for future in as_completed(future_to_config):
-                    config_file = future_to_config[future]
+                    config_info = future_to_config[future]
                     try:
                         result = future.result()
                         results.append(result)
@@ -193,29 +242,30 @@ class ExperimentRunner:
                         print(f"{status} {result['config_name']} ({model}) - {duration:.1f}s [{completed}/{total}]")
                         
                     except Exception as e:
-                        print(f"✗ {Path(config_file).stem} - Exception: {e}")
+                        config_name = config_info['virtual_name']
+                        print(f"✗ {config_name} - Exception: {e}")
                         results.append({
                             'status': 'error',
-                            'config_file': config_file,
-                            'config_name': Path(config_file).stem,
+                            'config_file': config_info['file_path'],
+                            'config_name': config_name,
                             'error': str(e),
-                            'model': 'unknown',
+                            'model': config_info['agent_name'],
                             'duration': 0
                         })
                         completed += 1
         else:
             # Sequential execution with progress
             results = []
-            total = len(config_files)
+            total = len(config_infos)
             
-            for i, config_file in enumerate(config_files, 1):
-                config_name = Path(config_file).stem
+            for i, config_info in enumerate(config_infos, 1):
+                config_name = config_info['virtual_name']
                 print(f"\n[{i}/{total}] Starting {config_name}")
                 
                 def progress_callback(message, percent):
                     print(f"  {message} ({percent:.0f}%)")
                 
-                result = self.run_single_simulation(config_file, progress_callback)
+                result = self.run_single_simulation(config_info, progress_callback)
                 results.append(result)
                 
                 status = "✓" if result['status'] == 'success' else "✗"
@@ -313,7 +363,7 @@ def run_experiment(
         
         # Print experiment info
         console.print(f"[bold green]Experiment:[/] {Path(experiment_folder).name}")
-        console.print(f"[bold]Found [cyan]{len(config_files)}[/] configurations")
+        console.print(f"[bold]Found [cyan]{len(config_files)}[/] simulation configurations")
         console.print(f"[bold]Parallel execution:[/] {'[green]Yes[/]' if not sequential else '[yellow]No[/]'}")
         console.print(f"[bold]Max workers:[/] {max_workers if not sequential else 1}")
         
@@ -321,30 +371,54 @@ def run_experiment(
         if validate_only:
             with console.status("[bold green]Validating configs...[/]"):
                 errors = []
-                for config_file in config_files:
+                # Get unique config files for validation
+                unique_files = list(set(info['file_path'] for info in config_files))
+                
+                for config_file in unique_files:
                     try:
                         with open(config_file) as f:
                             config = yaml.safe_load(f)
                         
-                        # Validation for new flexible format only
+                        # Validation for flexible format
                         if "models" not in config:
                             errors.append((config_file, "Missing 'models' section"))
                         else:
                             models = config["models"]
-                            required_models = ["agent", "environment", "evaluator"]
+                            required_models = ["environment", "evaluator"]
                             missing_models = [m for m in required_models if m not in models]
                             if missing_models:
                                 errors.append((config_file, f"Missing required models: {', '.join(missing_models)}"))
                             
+                            # Check for agent or agents
+                            if "agent" not in models and "agents" not in models:
+                                errors.append((config_file, "Missing 'agent' or 'agents' in models section"))
+                            elif "agent" in models and "agents" in models:
+                                errors.append((config_file, "Cannot have both 'agent' and 'agents' in models section"))
+                            
                             # Validate model format (must have name and provider)
                             for model_key, model_config in models.items():
-                                if not isinstance(model_config, dict):
-                                    errors.append((config_file, f"Model '{model_key}' must be a dict with 'name' and 'provider' fields"))
-                                else:
-                                    if "name" not in model_config:
-                                        errors.append((config_file, f"Model '{model_key}' missing 'name' field"))
-                                    if "provider" not in model_config:
-                                        errors.append((config_file, f"Model '{model_key}' missing 'provider' field"))
+                                if model_key == "agents":
+                                    # Validate agents list
+                                    if not isinstance(model_config, list):
+                                        errors.append((config_file, "'agents' must be a list"))
+                                    else:
+                                        for i, agent in enumerate(model_config):
+                                            if not isinstance(agent, dict):
+                                                errors.append((config_file, f"Agent {i+1} must be a dict with 'name' and 'provider' fields"))
+                                            else:
+                                                if "name" not in agent:
+                                                    errors.append((config_file, f"Agent {i+1} missing 'name' field"))
+                                                if "provider" not in agent:
+                                                    errors.append((config_file, f"Agent {i+1} missing 'provider' field"))
+                                elif model_key in ["agent", "environment", "evaluator", "describer"]:
+                                    # Validate single model
+                                    if not isinstance(model_config, dict):
+                                        errors.append((config_file, f"Model '{model_key}' must be a dict with 'name' and 'provider' fields"))
+                                    else:
+                                        if "name" not in model_config:
+                                            errors.append((config_file, f"Model '{model_key}' missing 'name' field"))
+                                        if "provider" not in model_config:
+                                            errors.append((config_file, f"Model '{model_key}' missing 'provider' field"))
                     except Exception as e:
                         errors.append((config_file, f"Error parsing config: {str(e)}"))
             
@@ -401,31 +475,32 @@ def list_experiments():
     # Create a table to display experiments
     table = Table(show_header=True, header_style="bold")
     table.add_column("Experiment Name")
-    table.add_column("Configs")
-    table.add_column("Models")
+    table.add_column("Simulations")
+    table.add_column("Agent Models")
     
     for folder in sorted(experiment_folders):
         name = os.path.basename(folder)
-        configs = glob.glob(f"{folder}/*.yaml")
         
-        # Extract unique models (new format only)
-        models = set()
-        for config_file in configs:
-            try:
-                with open(config_file) as f:
-                    config = yaml.safe_load(f)
-                if "models" in config and "agent" in config["models"]:
-                    agent_config = config["models"]["agent"]
-                    # New format only: {name: "model_name", provider: "provider_name"}
-                    models.add(agent_config.get('name', 'unknown'))
-            except (KeyError, TypeError, yaml.YAMLError):
-                pass
-        
-        table.add_row(
-            name,
-            str(len(configs)),
-            ", ".join(sorted(models)) if models else "Unknown"
-        )
+        try:
+            runner = ExperimentRunner(folder)
+            config_infos = runner.get_config_files()
+            
+            # Extract unique agent models
+            agent_models = set()
+            for info in config_infos:
+                agent_models.add(info['agent_name'])
+            
+            table.add_row(
+                name,
+                str(len(config_infos)),
+                ", ".join(sorted(agent_models)) if agent_models else "Unknown"
+            )
+        except Exception as e:
+            table.add_row(
+                name,
+                "Error",
+                f"Failed to parse: {str(e)}"
+            )
     
     console.print("[bold]Available Experiments:[/]")
     console.print(table)

@@ -27,9 +27,18 @@ class CESARE:
         self.prompts_file = prompts_file
         self.evaluation_prompts_file = evaluation_prompts_file
 
-        # Get model configurations (new format only)
-        agent_model = models["agent"]["name"]
-        agent_provider = models["agent"]["provider"]
+        # Get model configurations (handle both single agent and multi-agent format)
+        if "agent" in models:
+            # Single agent format
+            agent_model = models["agent"]["name"]
+            agent_provider = models["agent"]["provider"]
+        elif "agents" in models and len(models["agents"]) > 0:
+            # Multi-agent format - take the first agent for single simulation
+            agent_model = models["agents"][0]["name"]
+            agent_provider = models["agents"][0]["provider"]
+        else:
+            raise ValueError("No agent configuration found. Use either 'agent' or 'agents' in models section.")
+            
         env_model = models["environment"]["name"]
         env_provider = models["environment"]["provider"]
 

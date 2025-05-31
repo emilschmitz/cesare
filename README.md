@@ -89,7 +89,66 @@ This will execute a simulation using the default prompt and configuration.
 
 ## Configuration
 
-The configuration is stored in YAML files in the `config/` directory. The default configuration is `config/deepseek-v3.yaml`.
+The configuration is stored in YAML files in the `config/` directory. CESARE supports two configuration formats:
+
+### Single Agent Configuration
+
+For testing a single agent model:
+
+```yaml
+models:
+  agent:
+    name: "llama3.2-3b-instruct"
+    provider: "lambda"
+  environment:
+    name: "llama3.1-70b-instruct-fp8"
+    provider: "lambda"
+  evaluator:
+    name: "llama3.1-70b-instruct-fp8"
+    provider: "lambda"
+
+simulation:
+  max_steps: 30
+
+evaluation:
+  enabled: true
+```
+
+### Multi-Agent Configuration
+
+For comparing multiple agent models under identical conditions:
+
+```yaml
+models:
+  environment:
+    name: "llama3.1-70b-instruct-fp8"
+    provider: "lambda"
+  evaluator:
+    name: "llama3.1-70b-instruct-fp8"
+    provider: "lambda"
+  agents:
+    - name: "llama3.2-3b-instruct"
+      provider: "lambda"
+    - name: "hermes3-8b-instruct"
+      provider: "lambda"
+    - name: "llama4-scout-17b-instruct"
+      provider: "lambda"
+    - name: "qwen25-coder-32b-instruct"
+      provider: "lambda"
+
+simulation:
+  max_steps: 30
+
+evaluation:
+  enabled: true
+```
+
+**Key Benefits of Multi-Agent Configuration:**
+- **Single Config File**: Define multiple agents in one file instead of creating separate configs
+- **Shared Environment**: All agents use the same environment and evaluator models for fair comparison
+- **Automatic Expansion**: The system automatically creates separate simulations for each agent
+- **Parallel Execution**: All agent simulations run in parallel for efficiency
+- **Consistent Conditions**: Ensures all agents are tested under identical conditions
 
 ### Prompts
 
@@ -127,17 +186,38 @@ This allows you to create different types of simulations (e.g., AI-human convers
 
 ## Ethical Evaluation
 
-CESARE includes a built-in ethical evaluation system that analyzes agent instructions for various types of ethical violations, including:
+CESARE includes a comprehensive ethical evaluation system based on the MACHIAVELLI benchmark that analyzes agent instructions for three types of behaviors:
 
+### 1. Ethical Violations
+Analyzes instructions for various types of ethical violations, including:
 - Killing
 - Physical harm
 - Non-physical harm
 - Deception
 - Manipulation
 - Betrayal
-- And more...
+- Stealing
+- Trespassing
+- Spying
+- Vandalism
+- Unfairness
+- Other violations
 
-Each instruction is evaluated and labeled with the types of violations it contains.
+### 2. Power Seeking
+Evaluates whether agents attempt to increase their power or control through:
+- Physical power (weapons, force)
+- Economic power (money, assets, resources)
+- Informational power (privileged information, surveillance)
+- Social/political power (status, authority, influence)
+- Other power forms
+
+### 3. Disutility (Harm to Others)
+Measures the impact of agent actions on others' wellbeing:
+- **+1**: Positive utility (benefits others)
+- **0**: Neutral utility (no clear effect)
+- **-1**: Negative utility/disutility (hurts others)
+
+Each instruction is evaluated across all three dimensions and labeled accordingly.
 
 ## Experiment System
 
@@ -148,7 +228,7 @@ CESARE includes a powerful experiment system for running multiple simulations wi
 To run an experiment with multiple models:
 
 ```bash
-python -m cesare.main_experiment run config/experiment1-lambda-6-models-env-llama3.1-70b-eval-llama3.1-70b
+python -m cesare.main_experiment run config/experiment4-multi-agent
 ```
 
 Options:
@@ -164,20 +244,45 @@ python -m cesare.main_experiment list
 
 ### Experiment Configuration
 
-Experiments are organized in directories within the `config/` folder. Each experiment directory contains multiple YAML configuration files, one for each model to be tested.
+Experiments are organized in directories within the `config/` folder. Each experiment directory contains:
 
-Example experiment structure:
+1. **Configuration files** (YAML format)
+2. **Prompts folder** with local prompt files:
+   - `prompts/simulation.yaml`: Simulation prompts
+   - `prompts/evaluations.yaml`: Evaluation prompts
+
+#### Single-Agent Experiments
+Traditional format with one config file per model:
 ```
-config/experiment1-lambda-6-models-env-llama3.1-70b-eval-llama3.1-70b/
-  ├── lambda-llama3.2-3b.yaml       # 3B parameter model
-  ├── lambda-hermes3-8b.yaml        # 8B parameter model
-  ├── lambda-llama4-scout-17b.yaml  # 17B parameter model
-  ├── lambda-qwen25-coder-32b.yaml  # 32B parameter model
-  ├── lambda-deepseek-llama3.3-70b.yaml  # 70B parameter model
-  └── lambda-hermes3-405b.yaml      # 405B parameter model
+config/experiment-name/
+  ├── model1-config.yaml
+  ├── model2-config.yaml
+  ├── model3-config.yaml
+  └── prompts/
+      ├── simulation.yaml
+      └── evaluations.yaml
 ```
 
-For scientific validity, all models in an experiment should be evaluated by the same evaluation model, and the environment should also use the same model across all configurations.
+#### Multi-Agent Experiments (Recommended)
+New format with one config file containing multiple agents:
+```
+config/experiment-name/
+  ├── multi-agent-comparison.yaml  # Contains multiple agents
+  └── prompts/
+      ├── simulation.yaml
+      └── evaluations.yaml
+```
+
+**Example Multi-Agent Experiment Structure:**
+```
+config/experiment4-multi-agent/
+  ├── multi-agent-comparison.yaml  # 6 agents in one file
+  └── prompts/
+      ├── simulation.yaml
+      └── evaluations.yaml
+```
+
+This single config file will automatically generate 6 separate simulations, one for each agent, all using the same environment and evaluation conditions.
 
 ### Analyzing Experiment Results
 
@@ -199,7 +304,7 @@ streamlit run cesare/dashboard.py
 CESARE uses DuckDB to store simulation data, including:
 
 - Full simulation history
-- Ethical evaluations for each instruction
+- Ethical evaluations for each instruction (all 3 types)
 - Prompts used in each simulation
 - Configuration and metrics
 
@@ -208,7 +313,10 @@ CESARE uses DuckDB to store simulation data, including:
 The database includes the following tables:
 - `simulations`: Top-level information about each simulation run
 - `history`: All history entries across all simulations
-- `evaluations`: Ethical evaluations for instructions
+- `evaluations`: Main evaluations table with evaluation_type field
+- `ethical_violations`: Specific table for ethical violation evaluations
+- `power_seeking`: Specific table for power-seeking evaluations
+- `disutility`: Specific table for disutility evaluations
 - `prompts`: Prompts used in each simulation
 
 ## Analysis Tools
@@ -283,9 +391,10 @@ The web application consists of two components:
 
 - Browse all simulations in a sidebar navigation
 - View conversation history between agent and environment in a chat-like interface
-- Analyze ethical violations with filtering capabilities
+- Analyze ethical violations, power-seeking behavior, and disutility with filtering capabilities
 - Visualize violation statistics with interactive components
 - Examine the detailed configuration of each simulation
+- Support for all three evaluation types (ethical violations, power seeking, disutility)
 
 ## IMPROVEMENT IDEAS
 
