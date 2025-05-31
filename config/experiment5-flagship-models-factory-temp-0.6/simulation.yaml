@@ -1,97 +1,62 @@
-name: "Flagship Models Factory Ethical Analysis - Temp 0.6"
-description: "Comprehensive evaluation of flagship and previous generation models from major AI providers using factory prompts with environment temperature 0.6"
+# CESARE Flagship Models Factory Ethical Analysis - Temperature 0.6
+# 
+# Temperature Parameter (Optional):
+# - Controls the creativity/randomness of model responses
+# - Range: 0.0 to 2.0 (Lambda API supports up to 2.0)
+# - Lower values (0.0-0.3): More deterministic, focused responses
+# - Medium values (0.4-0.8): Balanced creativity and coherence  
+# - Higher values (0.9-2.0): More creative, diverse, but potentially less coherent
+# - If not specified, uses the model's default temperature
+# - Can be set independently for environment and each agent
 
-# Simulation parameters
-steps: 20
-repetitions: 5
-
-# Model configurations
 models:
-  # Agent models - flagship and previous from major providers + Lambda models
-  agents:
-    # Anthropic flagship and previous
-    - provider: "anthropic"
-      model: "claude-opus-4-20250514"
-      name: "Claude-4-Opus"
-    
-    - provider: "anthropic" 
-      model: "claude-sonnet-4-20250514"
-      name: "Claude-4-Sonnet"
-    
-    - provider: "anthropic"
-      model: "claude-3-7-sonnet-20250219"
-      name: "Claude-3.7-Sonnet"
-    
-    - provider: "anthropic"
-      model: "claude-3-5-sonnet-20241022"
-      name: "Claude-3.5-Sonnet"
-    
-    # OpenAI flagship and previous
-    - provider: "openai"
-      model: "gpt-4.1"
-      name: "GPT-4.1"
-    
-    - provider: "openai"
-      model: "o3-mini"
-      name: "o3-mini"
-    
-    - provider: "openai"
-      model: "gpt-4o"
-      name: "GPT-4o"
-    
-    - provider: "openai"
-      model: "gpt-4-turbo"
-      name: "GPT-4-Turbo"
-    
-    - provider: "openai"
-      model: "gpt-3.5-turbo"
-      name: "GPT-3.5-Turbo"
-    
-    # Lambda Labs models (Meta Llama and others)
-    - provider: "lambda"
-      model: "llama-4-maverick-17b-128e-instruct-fp8"
-      name: "Llama-4-Maverick"
-    
-    - provider: "lambda"
-      model: "llama-4-scout-17b-16e-instruct"
-      name: "Llama-4-Scout"
-    
-    - provider: "lambda"
-      model: "llama3.3-70b-instruct-fp8"
-      name: "Llama-3.3-70B"
-    
-    - provider: "lambda"
-      model: "llama3.1-405b-instruct-fp8"
-      name: "Llama-3.1-405B"
-    
-    - provider: "lambda"
-      model: "llama3.1-70b-instruct-fp8"
-      name: "Llama-3.1-70B"
-    
-    # Additional Lambda models for diversity
-    - provider: "lambda"
-      model: "deepseek-r1-671b"
-      name: "DeepSeek-R1"
-    
-    - provider: "lambda"
-      model: "hermes3-405b"
-      name: "Hermes-3-405B"
-
-  # Environment model - creates scenarios and responds to agent actions
   environment:
-    provider: "lambda"
     name: "llama-4-maverick-17b-128e-instruct-fp8"
-    temperature: 0.6  # Medium temperature for balanced scenario generation
-    
-  # Evaluator model - judges ethical violations and utility changes  
+    provider: "lambda"
+    temperature: 0.6
   evaluator:
-    provider: "lambda"
     name: "llama-4-maverick-17b-128e-instruct-fp8"
-    temperature: 0.6  # Medium temperature for consistent evaluation
+    provider: "lambda"
+    temperature: 0.6
+  agents:
+    - name: "claude-opus-4-20250514"
+      provider: "anthropic"
+    - name: "claude-sonnet-4-20250514"
+      provider: "anthropic"
+    - name: "claude-3-7-sonnet-20250219"
+      provider: "anthropic"
+    - name: "claude-3-5-sonnet-20241022"
+      provider: "anthropic"
+    - name: "gpt-4.1"
+      provider: "openai"
+    - name: "o3-mini"
+      provider: "openai"
+    - name: "gpt-4o"
+      provider: "openai"
+    - name: "gpt-4-turbo"
+      provider: "openai"
+    - name: "gpt-3.5-turbo"
+      provider: "openai"
+    - name: "llama-4-maverick-17b-128e-instruct-fp8"
+      provider: "lambda"
+    - name: "llama-4-scout-17b-16e-instruct"
+      provider: "lambda"
+    - name: "llama3.3-70b-instruct-fp8"
+      provider: "lambda"
+    - name: "llama3.1-405b-instruct-fp8"
+      provider: "lambda"
+    - name: "llama3.1-70b-instruct-fp8"
+      provider: "lambda"
+    - name: "deepseek-r1-671b"
+      provider: "lambda"
+    - name: "hermes3-405b"
+      provider: "lambda"
 
-# Experiment metadata
-metadata:
-  experiment_type: "flagship_models_comparison"
-  focus: "ethical_analysis_across_providers"
-  temperature_strategy: "factory_prompts_env_temp_0.6"
-  model_selection_criteria: "flagship_and_previous_generations" 
+simulation:
+  max_steps: 20
+  repetitions: 5
+
+evaluation:
+  enabled: true
+  log_to_file: true
+  log_path: "logs/evaluations/" 

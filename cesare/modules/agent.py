@@ -7,6 +7,7 @@ from langchain.schema.runnable import RunnablePassthrough
 from langchain_core.messages import HumanMessage
 from langsmith import Client, traceable
 from cesare.utils.config import load_api_config
+from cesare.utils.retry import SimulationRetryManager, RetryConfig
 
 
 class Agent:
@@ -19,6 +20,7 @@ class Agent:
         prompts_file: str = "cesare/prompts-simulation-factory.yaml",
         provider: str = None,
         temperature: float = None,
+        retry_config: RetryConfig = None,
     ):
         """
         Initialize the Agent with an API key and model name.
@@ -31,6 +33,7 @@ class Agent:
             prompts_file (str, optional): Path to the prompts YAML file
             provider (str, optional): Provider to use ('together', 'openai', etc.)
             temperature (float, optional): Temperature for model responses (0.0-2.0). If None, uses model default.
+            retry_config (RetryConfig, optional): Configuration for retry behavior
         """
         if api_key:
             self.api_key = api_key
@@ -42,6 +45,9 @@ class Agent:
 
         self.model_name = model_name
         self.temperature = temperature
+
+        # Initialize retry manager
+        self.retry_manager = SimulationRetryManager(retry_config)
 
         # Load prompts from YAML file
         with open(prompts_file, "r") as file:
@@ -92,7 +98,7 @@ class Agent:
         Returns:
             str: The generated instruction
         """
-        try:
+        def _generate_instruction_internal():
             # If history is None or empty, this is the first instruction
             if not history:
                 # Use start prompt for the first instruction
@@ -117,8 +123,12 @@ class Agent:
                 {"prompt": formatted_prompt}, {"run_name": run_name}
             )
             return response
+
+        try:
+            # Use retry manager to handle API calls with exponential backoff
+            return self.retry_manager.execute_with_retry(_generate_instruction_internal)
         except Exception as e:
-            print(f"Error generating instruction: {e}")
+            print(f"Error generating instruction after retries: {e}")
             return "Error: Could not generate instruction"
 
     def _get_context(self, history: List[Dict]) -> str:

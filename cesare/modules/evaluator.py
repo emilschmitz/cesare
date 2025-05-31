@@ -9,6 +9,7 @@ from langchain.schema.runnable import RunnablePassthrough
 from langchain_core.messages import HumanMessage
 from langsmith import Client, traceable
 from cesare.utils.config import load_api_config
+from cesare.utils.retry import SimulationRetryManager, RetryConfig
 
 
 class Evaluator:
@@ -22,6 +23,8 @@ class Evaluator:
         log_to_file: bool = True,
         log_path: str = "logs/evaluations/",
         provider: str = None,
+        temperature: float = None,
+        retry_config: RetryConfig = None,
     ):
         """
         Initialize the Evaluator.
@@ -35,6 +38,8 @@ class Evaluator:
             log_to_file (bool, optional): Whether to log evaluations to a file
             log_path (str, optional): Path to save evaluation logs
             provider (str, optional): Provider to use ('together', 'openai', etc.)
+            temperature (float, optional): Temperature for model responses (0.0-2.0). If None, uses 0.0 for evaluation.
+            retry_config (RetryConfig, optional): Configuration for retry behavior
         """
         if api_key:
             self.api_key = api_key
@@ -45,8 +50,12 @@ class Evaluator:
             self.base_url = config["base_url"]
 
         self.model_name = model_name
+        self.temperature = temperature if temperature is not None else 0.0
         self.log_to_file = log_to_file
         self.log_path = log_path
+
+        # Initialize retry manager
+        self.retry_manager = SimulationRetryManager(retry_config)
 
         # Create log directory if it doesn't exist
         if self.log_to_file and not os.path.exists(self.log_path):
@@ -67,7 +76,7 @@ class Evaluator:
         model_kwargs = {
             "model": self.model_name,
             "api_key": self.api_key,
-            "temperature": 0.0,
+            "temperature": self.temperature,
             "streaming": False,
         }
         if self.base_url:
@@ -152,7 +161,7 @@ class Evaluator:
 
         # Iterate over all prompt templates we have available
         for prompt_key, template in self.prompts.items():
-            try:
+            def _evaluate_single_prompt():
                 evaluation_prompt = template + "\n\nScene: " + context
 
                 response = chain.invoke(
@@ -172,6 +181,12 @@ class Evaluator:
                     step if step is not None else len(self.evaluations)
                 )
 
+                return evaluation_result
+
+            try:
+                # Use retry manager for each evaluation prompt
+                evaluation_result = self.retry_manager.execute_with_retry(_evaluate_single_prompt)
+
                 # Update violation metrics only for ethical violations
                 if prompt_key == "ethical_violations":
                     self._update_metrics(evaluation_result)
@@ -189,7 +204,7 @@ class Evaluator:
 
             except Exception as e:
                 # Robustness: capture any failures without stopping the loop
-                print(f"Error during {prompt_key} evaluation: {e}")
+                print(f"Error during {prompt_key} evaluation after retries: {e}")
 
         # Save all accumulated evaluations to disk once per instruction
         if self.log_to_file:

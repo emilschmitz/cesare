@@ -3,6 +3,7 @@ from cesare.modules.agent import Agent
 from cesare.modules.environment import Environment
 from cesare.modules.evaluator import Evaluator
 from cesare.utils.database import SimulationDB
+from cesare.utils.retry import RetryConfig
 import yaml
 import os
 from langsmith import Client, traceable
@@ -15,9 +16,22 @@ class CESARE:
         prompts_file: str = "cesare/prompts-simulation-factory.yaml",
         evaluation_prompts_file: str = "cesare/prompts-evaluation.yaml",
         db_path: str = "logs/simulations.duckdb",
+        retry_config: RetryConfig = None,
     ):
         self.config = config
         models = config["models"]
+
+        # Initialize retry configuration
+        if retry_config is None:
+            retry_config = RetryConfig(
+                max_retries=5,
+                base_delay=1.0,
+                max_delay=60.0,
+                exponential_base=2.0,
+                jitter=True,
+                rate_limit_delay=2.0,
+            )
+        self.retry_config = retry_config
 
         # Load prompts
         with open(prompts_file, "r") as file:
@@ -58,12 +72,14 @@ class CESARE:
             prompts_file=prompts_file,
             provider=agent_provider,
             temperature=agent_temperature,
+            retry_config=retry_config,
         )
         self.environment = Environment(
             model_name=env_model,
             prompts_file=prompts_file,
             provider=env_provider,
             temperature=env_temperature,
+            retry_config=retry_config,
         )
 
         # Get the configurable keys from the prompt configuration
@@ -77,8 +93,10 @@ class CESARE:
             if "evaluator" in models:
                 eval_model = models["evaluator"]["name"]
                 eval_provider = models["evaluator"]["provider"]
+                eval_temperature = models["evaluator"].get("temperature")
             else:
                 eval_model, eval_provider = agent_model, agent_provider
+                eval_temperature = None
 
             eval_config = config.get("evaluation", {})
 
@@ -88,6 +106,8 @@ class CESARE:
                 log_to_file=eval_config.get("log_to_file", True),
                 log_path=eval_config.get("log_path", "logs/evaluations/"),
                 provider=eval_provider,
+                temperature=eval_temperature,
+                retry_config=retry_config,
             )
 
         self.history: List[Dict] = []
@@ -348,7 +368,7 @@ if __name__ == "__main__":
             print("Error: Missing 'repetitions' in simulation configuration")
             sys.exit(1)
             
-        print(f"✓ Configuration is valid")
+        print("✓ Configuration is valid")
         print(f"✓ Found {len(config['models']['agents'])} agent configurations")
         print(f"✓ Simulation steps: {sim_config[steps_key]}")
         print(f"✓ Repetitions: {sim_config['repetitions']}")

@@ -8,6 +8,7 @@ from langchain.schema.runnable import RunnablePassthrough
 from langchain_core.messages import HumanMessage
 from langsmith import Client, traceable
 from cesare.utils.config import load_api_config
+from cesare.utils.retry import SimulationRetryManager, RetryConfig
 
 
 class Environment:
@@ -18,6 +19,7 @@ class Environment:
         prompts_file: str = "cesare/prompts-simulation-factory.yaml",
         provider: str = None,
         temperature: float = None,
+        retry_config: RetryConfig = None,
     ):
         """
         Initialize the Environment with an API key and model name.
@@ -28,6 +30,7 @@ class Environment:
             prompts_file (str, optional): Path to the prompts YAML file
             provider (str, optional): Provider to use ('together', 'openai', etc.)
             temperature (float, optional): Temperature for model responses (0.0-2.0). If None, uses model default.
+            retry_config (RetryConfig, optional): Configuration for retry behavior
         """
         if api_key:
             self.api_key = api_key
@@ -39,6 +42,9 @@ class Environment:
 
         self.model_name = model_name
         self.temperature = temperature
+
+        # Initialize retry manager
+        self.retry_manager = SimulationRetryManager(retry_config)
 
         # Load prompts from YAML file
         with open(prompts_file, "r") as file:
@@ -82,9 +88,9 @@ class Environment:
         Returns:
             str: The generated environment response
         """
-        prompt = self._create_prompt(history)
+        def _generate_response_internal():
+            prompt = self._create_prompt(history)
 
-        try:
             # Create and run a simple chain
             chain = (
                 RunnablePassthrough()
@@ -98,8 +104,12 @@ class Environment:
                 {"prompt": prompt}, {"run_name": "environment_response"}
             )
             return response
+
+        try:
+            # Use retry manager to handle API calls with exponential backoff
+            return self.retry_manager.execute_with_retry(_generate_response_internal)
         except Exception as e:
-            print(f"Error generating environment response: {e}")
+            print(f"Error generating environment response after retries: {e}")
             raise
 
     def _create_prompt(self, history: List[Dict]) -> str:
