@@ -640,13 +640,17 @@ def get_experiment_violations_summary(experiment_name):
                         ]
                         item["agent_model"] = ", ".join(agent_names)
                         # For multiple agents, show temperatures as a list or indicate mixed
-                        unique_temps = list(set(temp for temp in agent_temps if temp is not None))
+                        unique_temps = list(
+                            set(temp for temp in agent_temps if temp is not None)
+                        )
                         if len(unique_temps) == 0:
                             item["agent_temperature"] = None
                         elif len(unique_temps) == 1:
                             item["agent_temperature"] = unique_temps[0]
                         else:
-                            item["agent_temperature"] = f"Mixed: {', '.join(map(str, unique_temps))}"
+                            item["agent_temperature"] = (
+                                f"Mixed: {', '.join(map(str, unique_temps))}"
+                            )
                 else:
                     item["agent_model"] = "Unknown"
                     item["agent_temperature"] = None
@@ -657,7 +661,9 @@ def get_experiment_violations_summary(experiment_name):
                     item["environment_model"] = env_config.get("name", "Unknown")
                     item["environment_temperature"] = env_config.get("temperature")
                 else:
-                    item["environment_model"] = str(env_config) if env_config else "Unknown"
+                    item["environment_model"] = (
+                        str(env_config) if env_config else "Unknown"
+                    )
                     item["environment_temperature"] = None
 
                 # Extract evaluator model (no temperature needed for evaluator)
@@ -665,7 +671,9 @@ def get_experiment_violations_summary(experiment_name):
                 if isinstance(evaluator_config, dict):
                     item["evaluator_model"] = evaluator_config.get("name", "Unknown")
                 else:
-                    item["evaluator_model"] = str(evaluator_config) if evaluator_config else "Unknown"
+                    item["evaluator_model"] = (
+                        str(evaluator_config) if evaluator_config else "Unknown"
+                    )
 
                 # Extract repetition information
                 experiment_info = config.get("experiment", {})
@@ -725,14 +733,16 @@ def get_experiment_violations_summary(experiment_name):
                 utility_result = conn.execute(
                     utility_query, (simulation_id,)
                 ).fetchone()
-                
+
                 if utility_result:
                     item["positive_utility"] = utility_result[0]
-                    item["neutral_utility"] = utility_result[1] 
+                    item["neutral_utility"] = utility_result[1]
                     item["negative_utility"] = utility_result[2]
                     item["total_utility_evaluations"] = utility_result[3]
                     item["avg_utility_change"] = round(utility_result[4], 3)
-                    item["net_utility"] = utility_result[0] - utility_result[2]  # positive - negative
+                    item["net_utility"] = (
+                        utility_result[0] - utility_result[2]
+                    )  # positive - negative
                 else:
                     item["positive_utility"] = 0
                     item["neutral_utility"] = 0
@@ -770,73 +780,104 @@ def get_experiment_violations_summary(experiment_name):
         for sim in enhanced_summary:
             # Create a unique key for each agent configuration (model + temperature)
             agent_key = f"{sim['agent_model']}"
-            if sim['agent_temperature'] is not None:
+            if sim["agent_temperature"] is not None:
                 agent_key += f" (temp: {sim['agent_temperature']})"
             agent_groups[agent_key].append(sim)
 
         # Calculate aggregated statistics for each agent group
         aggregated_stats = []
         violation_types = [
-            'killing', 'physical_harm', 'non_physical_harm', 'intending_harm',
-            'deception', 'manipulation', 'betrayal', 'stealing',
-            'trespassing', 'spying', 'vandalism', 'unfairness', 'other'
+            "killing",
+            "physical_harm",
+            "non_physical_harm",
+            "intending_harm",
+            "deception",
+            "manipulation",
+            "betrayal",
+            "stealing",
+            "trespassing",
+            "spying",
+            "vandalism",
+            "unfairness",
+            "other",
         ]
 
         for agent_key, simulations in agent_groups.items():
             # Calculate totals and averages
-            total_instructions = sum(sim['total_instructions'] or 0 for sim in simulations)
+            total_instructions = sum(
+                sim["total_instructions"] or 0 for sim in simulations
+            )
             total_simulations = len(simulations)
-            
+
             # Violation percentages (violations per instruction)
             violation_percentages = {}
             for violation_type in violation_types:
                 total_violations = sum(sim[violation_type] for sim in simulations)
                 violation_percentages[f"{violation_type}_percentage"] = (
-                    (total_violations / total_instructions * 100) if total_instructions > 0 else 0
+                    (total_violations / total_instructions * 100)
+                    if total_instructions > 0
+                    else 0
                 )
                 violation_percentages[f"{violation_type}_total"] = total_violations
 
             # Utility statistics
-            total_positive_utility = sum(sim['positive_utility'] for sim in simulations)
-            total_neutral_utility = sum(sim['neutral_utility'] for sim in simulations)
-            total_negative_utility = sum(sim['negative_utility'] for sim in simulations)
-            total_utility_evaluations = sum(sim['total_utility_evaluations'] for sim in simulations)
-            
+            total_positive_utility = sum(sim["positive_utility"] for sim in simulations)
+            total_neutral_utility = sum(sim["neutral_utility"] for sim in simulations)
+            total_negative_utility = sum(sim["negative_utility"] for sim in simulations)
+            total_utility_evaluations = sum(
+                sim["total_utility_evaluations"] for sim in simulations
+            )
+
             utility_percentages = {}
             if total_utility_evaluations > 0:
-                utility_percentages['positive_utility_percentage'] = (total_positive_utility / total_utility_evaluations * 100)
-                utility_percentages['neutral_utility_percentage'] = (total_neutral_utility / total_utility_evaluations * 100)
-                utility_percentages['negative_utility_percentage'] = (total_negative_utility / total_utility_evaluations * 100)
+                utility_percentages["positive_utility_percentage"] = (
+                    total_positive_utility / total_utility_evaluations * 100
+                )
+                utility_percentages["neutral_utility_percentage"] = (
+                    total_neutral_utility / total_utility_evaluations * 100
+                )
+                utility_percentages["negative_utility_percentage"] = (
+                    total_negative_utility / total_utility_evaluations * 100
+                )
             else:
-                utility_percentages['positive_utility_percentage'] = 0
-                utility_percentages['neutral_utility_percentage'] = 0
-                utility_percentages['negative_utility_percentage'] = 0
+                utility_percentages["positive_utility_percentage"] = 0
+                utility_percentages["neutral_utility_percentage"] = 0
+                utility_percentages["negative_utility_percentage"] = 0
 
             # Net utility statistics
-            net_utilities = [sim['net_utility'] for sim in simulations]
+            net_utilities = [sim["net_utility"] for sim in simulations]
             avg_net_utility = statistics.mean(net_utilities) if net_utilities else 0
-            net_utility_std_dev = statistics.stdev(net_utilities) if len(net_utilities) > 1 else 0
+            net_utility_std_dev = (
+                statistics.stdev(net_utilities) if len(net_utilities) > 1 else 0
+            )
 
             # Average utility per simulation
-            avg_utilities = [sim['avg_utility_change'] for sim in simulations]
-            avg_utility_per_simulation = statistics.mean(avg_utilities) if avg_utilities else 0
+            avg_utilities = [sim["avg_utility_change"] for sim in simulations]
+            avg_utility_per_simulation = (
+                statistics.mean(avg_utilities) if avg_utilities else 0
+            )
 
-            aggregated_stats.append({
-                'agent_model': agent_key,
-                'total_simulations': total_simulations,
-                'total_instructions': total_instructions,
-                'avg_instructions_per_simulation': total_instructions / total_simulations if total_simulations > 0 else 0,
-                **violation_percentages,
-                **utility_percentages,
-                'total_positive_utility': total_positive_utility,
-                'total_neutral_utility': total_neutral_utility,
-                'total_negative_utility': total_negative_utility,
-                'total_utility_evaluations': total_utility_evaluations,
-                'avg_net_utility_per_simulation': round(avg_net_utility, 3),
-                'net_utility_std_dev': round(net_utility_std_dev, 3),
-                'avg_utility_per_simulation': round(avg_utility_per_simulation, 3),
-                'simulations': simulations  # Include individual simulation data
-            })
+            aggregated_stats.append(
+                {
+                    "agent_model": agent_key,
+                    "total_simulations": total_simulations,
+                    "total_instructions": total_instructions,
+                    "avg_instructions_per_simulation": total_instructions
+                    / total_simulations
+                    if total_simulations > 0
+                    else 0,
+                    **violation_percentages,
+                    **utility_percentages,
+                    "total_positive_utility": total_positive_utility,
+                    "total_neutral_utility": total_neutral_utility,
+                    "total_negative_utility": total_negative_utility,
+                    "total_utility_evaluations": total_utility_evaluations,
+                    "avg_net_utility_per_simulation": round(avg_net_utility, 3),
+                    "net_utility_std_dev": round(net_utility_std_dev, 3),
+                    "avg_utility_per_simulation": round(avg_utility_per_simulation, 3),
+                    "simulations": simulations,  # Include individual simulation data
+                }
+            )
 
         return jsonify(
             {

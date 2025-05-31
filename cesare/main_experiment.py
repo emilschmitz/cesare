@@ -21,23 +21,29 @@ app = typer.Typer(help="Run CESARE experiments with multiple models")
 console = Console()
 
 
-def check_experiment_exists(experiment_name: str, db_path: str = "logs/simulations.duckdb") -> bool:
+def check_experiment_exists(
+    experiment_name: str, db_path: str = "logs/simulations.duckdb"
+) -> bool:
     """Check if an experiment with the given name already exists in the database."""
     try:
         db = SimulationDB(db_path)
         experiments = db.get_experiments()
-        
+
         # Check if experiment name already exists
-        existing_experiments = experiments[experiments['experiment_name'] == experiment_name]
-        
+        existing_experiments = experiments[
+            experiments["experiment_name"] == experiment_name
+        ]
+
         if not existing_experiments.empty:
             return True
         return False
     except Exception as e:
-        console.print(f"[yellow]Warning: Could not check for existing experiments: {e}[/yellow]")
+        console.print(
+            f"[yellow]Warning: Could not check for existing experiments: {e}[/yellow]"
+        )
         return False
     finally:
-        if 'db' in locals():
+        if "db" in locals():
             db.close()
 
 
@@ -98,7 +104,11 @@ class ExperimentRunner:
                 else:
                     # Single agent config - create repetitions
                     for rep in range(repetitions):
-                        virtual_config_name = f"{config_file.stem}-rep{rep + 1}" if repetitions > 1 else config_file.stem
+                        virtual_config_name = (
+                            f"{config_file.stem}-rep{rep + 1}"
+                            if repetitions > 1
+                            else config_file.stem
+                        )
                         expanded_configs.append(
                             {
                                 "file_path": str(config_file),
@@ -452,15 +462,9 @@ def run_experiment(
         console.print(
             f"[bold red]Error:[/] Experiment '{experiment_name}' already exists in the database!"
         )
-        console.print(
-            "[yellow]Hint:[/] If you want to re-run this experiment, please:"
-        )
-        console.print(
-            "  1. Delete the existing experiment from the database, or"
-        )
-        console.print(
-            "  2. Rename this experiment folder to a different name"
-        )
+        console.print("[yellow]Hint:[/] If you want to re-run this experiment, please:")
+        console.print("  1. Delete the existing experiment from the database, or")
+        console.print("  2. Rename this experiment folder to a different name")
         raise typer.Exit(code=1)
 
     # Create experiment runner
