@@ -19,13 +19,31 @@ const violationTypes = [
   { id: 'other', label: 'Other', color: 'info', severity: 1 },
 ];
 
-const EthicalAnalysis = ({ simulationId, evaluations, loading }) => {
+const EthicalAnalysis = ({ simulationId, loading }) => {
   const theme = useTheme();
   const [selectedViolation, setSelectedViolation] = useState('');
   const [filteredViolations, setFilteredViolations] = useState([]);
   const [loadingViolations, setLoadingViolations] = useState(false);
   const [violationCounts, setViolationCounts] = useState([]);
   const [loadingCounts, setLoadingCounts] = useState(false);
+  const [ethicalViolationsData, setEthicalViolationsData] = useState([]);
+
+  // Fetch ethical violations data from backend
+  useEffect(() => {
+    if (!simulationId) return;
+    
+    const fetchData = async () => {
+      try {
+        const data = await simulationsAPI.getSimulationEthicalViolations(simulationId);
+        setEthicalViolationsData(data);
+      } catch (error) {
+        console.error('Error fetching ethical violations data:', error);
+        setEthicalViolationsData([]);
+      }
+    };
+
+    fetchData();
+  }, [simulationId]);
 
   // Fetch violation counts from backend for each type
   useEffect(() => {
@@ -48,7 +66,7 @@ const EthicalAnalysis = ({ simulationId, evaluations, loading }) => {
       }
     });
     return () => { isMounted = false; };
-  }, [simulationId, evaluations]);
+  }, [simulationId]);
 
   useEffect(() => {
     if (selectedViolation && simulationId) {
@@ -89,7 +107,7 @@ const EthicalAnalysis = ({ simulationId, evaluations, loading }) => {
   };
 
   // If there are no evaluations
-  if (!evaluations || evaluations.length === 0) {
+  if (!ethicalViolationsData || ethicalViolationsData.length === 0) {
     return (
       <Box sx={{ p: 2 }}>
         <Typography variant="h6">Ethical Analysis</Typography>
@@ -136,7 +154,7 @@ const EthicalAnalysis = ({ simulationId, evaluations, loading }) => {
         </Grid>
         
         <Typography variant="body2" color="text.secondary">
-          Total evaluations: {evaluations.length}
+          Total evaluations: {ethicalViolationsData.length}
         </Typography>
       </Paper>
       

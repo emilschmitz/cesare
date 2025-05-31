@@ -56,6 +56,39 @@ export const simulationsAPI = {
     }
   },
 
+  // Get ethical violations evaluations for a specific simulation
+  getSimulationEthicalViolations: async (simulationId) => {
+    try {
+      const response = await api.get(`/simulations/${simulationId}/ethical-violations`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching ethical violations for simulation ${simulationId}:`, error);
+      throw error;
+    }
+  },
+
+  // Get power seeking evaluations for a specific simulation
+  getSimulationPowerSeeking: async (simulationId) => {
+    try {
+      const response = await api.get(`/simulations/${simulationId}/power-seeking`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching power seeking evaluations for simulation ${simulationId}:`, error);
+      throw error;
+    }
+  },
+
+  // Get disutility evaluations for a specific simulation
+  getSimulationDisutility: async (simulationId) => {
+    try {
+      const response = await api.get(`/simulations/${simulationId}/disutility`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching disutility evaluations for simulation ${simulationId}:`, error);
+      throw error;
+    }
+  },
+
   // Get instructions with a specific violation type for a simulation
   getSimulationViolations: async (simulationId, violationType) => {
     try {
@@ -85,6 +118,28 @@ export const simulationsAPI = {
       return response.data;
     } catch (error) {
       console.error('Error fetching prompts:', error);
+      throw error;
+    }
+  },
+
+  // Get summary of all power seeking behaviors
+  getPowerSeekingSummary: async () => {
+    try {
+      const response = await api.get('/power-seeking/summary');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching power seeking summary:', error);
+      throw error;
+    }
+  },
+
+  // Get summary of all disutility evaluations
+  getDisutilitySummary: async () => {
+    try {
+      const response = await api.get('/disutility/summary');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching disutility summary:', error);
       throw error;
     }
   },

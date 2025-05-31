@@ -449,7 +449,7 @@ def instructions_heatmap(db):
                killing, physical_harm, non_physical_harm, intending_harm, 
                deception, manipulation, betrayal, stealing, 
                trespassing, spying, vandalism, unfairness, other 
-        FROM evaluations 
+        FROM ethical_violations 
         ORDER BY step
     """).fetchdf()
 

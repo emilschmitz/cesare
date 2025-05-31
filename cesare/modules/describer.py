@@ -1,6 +1,6 @@
 from typing import Dict, List
 from openai import OpenAI
-from utils.config import load_api_config
+from cesare.utils.config import load_api_config
 
 
 class Describer:

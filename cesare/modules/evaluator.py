@@ -8,7 +8,7 @@ from langchain.schema import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
 from langchain_core.messages import HumanMessage
 from langsmith import Client, traceable
-from utils.config import load_api_config
+from cesare.utils.config import load_api_config
 
 
 class Evaluator:
@@ -116,99 +116,83 @@ class Evaluator:
             # If the function is not available in the current langchain version
             return None
 
-    @traceable(run_type="llm", name="evaluate_instruction")
+    @traceable
     def evaluate_instruction(
-        self, instruction: str, history: List[Dict], run_id: str = None, step: int = None
+        self, instruction: str, history: List[Dict], run_id: str = None, step: int | None = None
     ) -> Dict[str, Any]:
         """
-        Evaluate an instruction for ethical violations.
+        Run *all* available evaluation prompts on the latest instruction.
 
-        Args:
-            instruction (str): The instruction to evaluate
-            history (List[Dict]): The history context
-            run_id (str, optional): The LangSmith run ID to associate this evaluation with
-            step (int, optional): The step number in the simulation
-
-        Returns:
-            Dict[str, Any]: The evaluation result
+        For backward-compatibility, the method still returns the result of the
+        ``ethical_violations`` evaluation (if that prompt is defined). Results for
+        every other evaluation prompt are stored internally and (optionally)
+        logged, but are not returned.
         """
-        # Get current run ID if not provided
+
+        # Resolve run ID to attach LangSmith metadata if needed
         if run_id is None:
             run_id = self._get_run_id_from_callbacks()
 
-        try:
-            # Format context for evaluation
-            context = self._format_context_for_evaluation(instruction, history)
+        # Prepare reusable context and chain
+        context = self._format_context_for_evaluation(instruction, history)
 
-            # Create and run a simple chain
-            chain = (
-                RunnablePassthrough()
-                | (lambda x: [HumanMessage(content=x["prompt"])])
-                | self.model
-                | StrOutputParser()
-            )
+        chain = (
+            RunnablePassthrough()
+            | (lambda x: [HumanMessage(content=x["prompt"])])
+            | self.model
+            | StrOutputParser()
+        )
 
-            # Build prompt with the ethical violations template
-            evaluation_prompt = (
-                self.prompts["ethical_violations"] + "\n\nScene: " + context
-            )
+        # Keep track of the ethical violations result for return
+        violations_result: Dict[str, Any] | None = None
 
-            # Execute the chain with tracing
-            response = chain.invoke(
-                {"prompt": evaluation_prompt}, {"run_name": "ethical_evaluation"}
-            )
-
-            # Parse the evaluation result
+        # Iterate over all prompt templates we have available
+        for prompt_key, template in self.prompts.items():
             try:
-                # Extract JSON from response, handling potential text before/after the JSON
+                evaluation_prompt = template + "\n\nScene: " + context
+
+                response = chain.invoke(
+                    {"prompt": evaluation_prompt}, {"run_name": f"{prompt_key}_evaluation"}
+                )
+
+                # Extract JSON from possibly verbose response
                 json_str = self._extract_json(response)
                 evaluation_result = json.loads(json_str)
 
-                # Add timestamp and instruction to the evaluation
+                # Standard metadata additions
                 evaluation_result["timestamp"] = datetime.datetime.now().isoformat()
                 evaluation_result["instruction"] = instruction
-
-                # Update violation metrics
-                self._update_metrics(evaluation_result)
-
-                # Add step information
+                evaluation_result["evaluation_type"] = prompt_key
                 evaluation_result["step"] = step if step is not None else len(self.evaluations)
+
+                # Update violation metrics only for ethical violations
+                if prompt_key == "ethical_violations":
+                    self._update_metrics(evaluation_result)
+                    violations_result = evaluation_result
 
                 # Store the evaluation
                 self.evaluations.append(evaluation_result)
 
-                # Save to log file if enabled
-                if self.log_to_file:
-                    self._save_to_log()
-
-                # If a run_id is provided, add this evaluation as metadata to that run
+                # Attach as metadata to LangSmith run if possible
                 if run_id and self.langsmith_client:
                     self.langsmith_client.update_run(
                         run_id=run_id,
-                        metadata={
-                            "ethical_evaluation": evaluation_result,
-                            "current_violation_metrics": self.violation_metrics,
-                        },
+                        metadata={f"{prompt_key}_evaluation": evaluation_result},
                     )
 
-                return evaluation_result
+            except Exception as e:
+                # Robustness: capture any failures without stopping the loop
+                print(f"Error during {prompt_key} evaluation: {e}")
 
-            except json.JSONDecodeError:
-                print(f"Error parsing evaluation result: {response}")
-                error_result = {
-                    "error": "Could not parse evaluation result",
-                    "raw_response": response,
-                }
+        # Save all accumulated evaluations to disk once per instruction
+        if self.log_to_file:
+            self._save_to_log()
 
-                # Still log the error
-                if self.log_to_file:
-                    self._save_to_log()
-
-                return error_result
-
-        except Exception as e:
-            print(f"Error evaluating instruction: {e}")
-            return {"error": f"Could not evaluate instruction: {str(e)}"}
+        # Return the ethical violations result if we have it, else a placeholder
+        if violations_result is not None:
+            return violations_result
+        # Fallback: return the first evaluation or an error dict
+        return self.evaluations[-1] if self.evaluations else {"error": "No evaluations run"}
 
     def _save_to_log(self):
         """Save the current evaluations and metrics to the log file."""

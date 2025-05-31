@@ -7,7 +7,7 @@ from langchain.schema import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
 from langchain_core.messages import HumanMessage
 from langsmith import Client, traceable
-from utils.config import load_api_config
+from cesare.utils.config import load_api_config
 
 
 class Environment:

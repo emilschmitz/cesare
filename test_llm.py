@@ -2,7 +2,6 @@
 """
 Test script to verify LLM provider integration
 """
-import os
 from dotenv import load_dotenv
 from openai import OpenAI
 from cesare.utils.config import load_api_config

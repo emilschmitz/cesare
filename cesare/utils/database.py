@@ -71,7 +71,7 @@ class SimulationDB:
                     # Only remove lock file if we created it
                     if acquired and os.path.exists(self.lock_path):
                         os.remove(self.lock_path)
-                except:
+                except OSError:
                     pass
 
     def _execute_with_retry(self, query, params=None, max_retries=5):
@@ -107,7 +107,7 @@ class SimulationDB:
                     if hasattr(self._local, 'conn') and self._local.conn:
                         try:
                             self._local.conn.close()
-                        except:
+                        except Exception:
                             pass
                         self._local.conn = None
                     continue
@@ -128,7 +128,7 @@ class SimulationDB:
                 # Try to query simulations table to see if experiment_id exists
                 conn.execute("SELECT experiment_id FROM simulations LIMIT 1")
                 schema_current = True
-            except:
+            except Exception:
                 schema_current = False
             
             if not schema_current:
@@ -139,7 +139,7 @@ class SimulationDB:
                     conn.execute("DROP TABLE IF EXISTS prompts")
                     conn.execute("DROP TABLE IF EXISTS simulations")
                     conn.execute("DROP TABLE IF EXISTS experiments")
-                except:
+                except Exception:
                     pass
             
             self._init_schema()
@@ -197,6 +197,22 @@ class SimulationDB:
                 simulation_id VARCHAR,
                 step INTEGER,
                 instruction_id VARCHAR,
+                evaluation_type VARCHAR,
+                action TEXT,
+                raw_evaluation JSON,
+                timestamp TIMESTAMP,
+                FOREIGN KEY (simulation_id) REFERENCES simulations(simulation_id),
+                FOREIGN KEY (instruction_id) REFERENCES history(history_id)
+            )
+        """)
+
+        # Ethical violations table - specific to ethical violations
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS ethical_violations (
+                evaluation_id VARCHAR PRIMARY KEY,
+                simulation_id VARCHAR,
+                step INTEGER,
+                instruction_id VARCHAR,
                 action TEXT,
                 raw_evaluation JSON,
                 killing BOOLEAN,
@@ -212,6 +228,42 @@ class SimulationDB:
                 vandalism BOOLEAN,
                 unfairness BOOLEAN,
                 other BOOLEAN,
+                timestamp TIMESTAMP,
+                FOREIGN KEY (simulation_id) REFERENCES simulations(simulation_id),
+                FOREIGN KEY (instruction_id) REFERENCES history(history_id)
+            )
+        """)
+
+        # Power seeking table - specific to power seeking evaluations
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS power_seeking (
+                evaluation_id VARCHAR PRIMARY KEY,
+                simulation_id VARCHAR,
+                step INTEGER,
+                instruction_id VARCHAR,
+                action TEXT,
+                raw_evaluation JSON,
+                physical_power BOOLEAN,
+                economic_power BOOLEAN,
+                informational_power BOOLEAN,
+                social_power BOOLEAN,
+                other_power BOOLEAN,
+                timestamp TIMESTAMP,
+                FOREIGN KEY (simulation_id) REFERENCES simulations(simulation_id),
+                FOREIGN KEY (instruction_id) REFERENCES history(history_id)
+            )
+        """)
+
+        # Disutility table - specific to disutility evaluations
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS disutility (
+                evaluation_id VARCHAR PRIMARY KEY,
+                simulation_id VARCHAR,
+                step INTEGER,
+                instruction_id VARCHAR,
+                action TEXT,
+                raw_evaluation JSON,
+                utility_change INTEGER,
                 timestamp TIMESTAMP,
                 FOREIGN KEY (simulation_id) REFERENCES simulations(simulation_id),
                 FOREIGN KEY (instruction_id) REFERENCES history(history_id)
@@ -393,9 +445,7 @@ class SimulationDB:
     def _save_evaluations(
         self, simulation_id: str, evaluations: List[Dict], history: List[Dict], ai_key: str = "instruction"
     ):
-        """Save evaluations to the database."""
-        eval_data = []
-
+        """Save evaluations to the appropriate tables based on evaluation type."""
         # Create a mapping from step to history_id for AI entries (instructions/responses)
         ai_entry_map = {}
         for i, entry in enumerate(history):
@@ -404,24 +454,42 @@ class SimulationDB:
                 history_id = self._generate_id(f"{simulation_id}_history_{i}")
                 ai_entry_map[i] = history_id
 
+        # Group evaluations by type
+        ethical_violations_data = []
+        power_seeking_data = []
+        disutility_data = []
+        general_evaluations_data = []
+
         for i, eval_item in enumerate(evaluations):
             evaluation_id = self._generate_id(f"{simulation_id}_eval_{i}")
-
+            evaluation_type = eval_item.get("evaluation_type", "unknown")
+            
             # Get corresponding AI entry ID
             step = eval_item.get("step", i)
             instruction_id = ai_entry_map.get(step, None)
 
-            # Extract labels
-            labels = eval_item.get("labels", {})
+            # Common data for all evaluation types
+            common_data = {
+                "evaluation_id": evaluation_id,
+                "simulation_id": simulation_id,
+                "step": step,
+                "instruction_id": instruction_id,
+                "action": eval_item.get("action", ""),
+                "raw_evaluation": json.dumps(eval_item),
+                "timestamp": datetime.datetime.now(),
+            }
 
-            eval_data.append(
-                {
-                    "evaluation_id": evaluation_id,
-                    "simulation_id": simulation_id,
-                    "step": step,
-                    "instruction_id": instruction_id,
-                    "action": eval_item.get("action", ""),
-                    "raw_evaluation": json.dumps(eval_item),
+            # Add to general evaluations table
+            general_evaluations_data.append({
+                **common_data,
+                "evaluation_type": evaluation_type,
+            })
+
+            # Handle specific evaluation types
+            if evaluation_type == "ethical_violations":
+                labels = eval_item.get("labels", {})
+                ethical_violations_data.append({
+                    **common_data,
                     "killing": bool(labels.get("killing", 0)),
                     "physical_harm": bool(labels.get("physical_harm", 0)),
                     "non_physical_harm": bool(labels.get("non_physical_harm", 0)),
@@ -435,17 +503,67 @@ class SimulationDB:
                     "vandalism": bool(labels.get("vandalism", 0)),
                     "unfairness": bool(labels.get("unfairness", 0)),
                     "other": bool(labels.get("other", 0)),
-                    "timestamp": datetime.datetime.now(),
-                }
-            )
+                })
 
-        # Convert to DataFrame and insert
-        if eval_data:
-            df = pd.DataFrame(eval_data)
-            conn = self._get_connection()
-            conn.register('df_temp', df)
-            self._execute_with_retry("INSERT INTO evaluations SELECT * FROM df_temp")
-            conn.unregister('df_temp')
+            elif evaluation_type == "power_seeking":
+                labels = eval_item.get("labels", {})
+                power_seeking_data.append({
+                    **common_data,
+                    "physical_power": bool(labels.get("physical_power", 0)),
+                    "economic_power": bool(labels.get("economic_power", 0)),
+                    "informational_power": bool(labels.get("informational_power", 0)),
+                    "social_power": bool(labels.get("social_power", 0)),
+                    "other_power": bool(labels.get("other_power", 0)),
+                })
+
+            elif evaluation_type == "disutility":
+                disutility_data.append({
+                    **common_data,
+                    "utility_change": int(eval_item.get("utility_change", 0)),
+                })
+
+        # Insert data into respective tables
+        conn = self._get_connection()
+
+        # General evaluations table
+        if general_evaluations_data:
+            df = pd.DataFrame(general_evaluations_data)
+            # Ensure column order matches table schema
+            df = df[['evaluation_id', 'simulation_id', 'step', 'instruction_id', 'evaluation_type', 'action', 'raw_evaluation', 'timestamp']]
+            conn.register('df_evaluations', df)
+            self._execute_with_retry("INSERT INTO evaluations SELECT * FROM df_evaluations")
+            conn.unregister('df_evaluations')
+
+        # Ethical violations table
+        if ethical_violations_data:
+            df = pd.DataFrame(ethical_violations_data)
+            # Ensure column order matches table schema
+            df = df[['evaluation_id', 'simulation_id', 'step', 'instruction_id', 'action', 'raw_evaluation', 
+                    'killing', 'physical_harm', 'non_physical_harm', 'intending_harm', 'deception', 
+                    'manipulation', 'betrayal', 'stealing', 'trespassing', 'spying', 'vandalism', 
+                    'unfairness', 'other', 'timestamp']]
+            conn.register('df_ethical', df)
+            self._execute_with_retry("INSERT INTO ethical_violations SELECT * FROM df_ethical")
+            conn.unregister('df_ethical')
+
+        # Power seeking table
+        if power_seeking_data:
+            df = pd.DataFrame(power_seeking_data)
+            # Ensure column order matches table schema
+            df = df[['evaluation_id', 'simulation_id', 'step', 'instruction_id', 'action', 'raw_evaluation',
+                    'physical_power', 'economic_power', 'informational_power', 'social_power', 'other_power', 'timestamp']]
+            conn.register('df_power', df)
+            self._execute_with_retry("INSERT INTO power_seeking SELECT * FROM df_power")
+            conn.unregister('df_power')
+
+        # Disutility table
+        if disutility_data:
+            df = pd.DataFrame(disutility_data)
+            # Ensure column order matches table schema
+            df = df[['evaluation_id', 'simulation_id', 'step', 'instruction_id', 'action', 'raw_evaluation', 'utility_change', 'timestamp']]
+            conn.register('df_disutility', df)
+            self._execute_with_retry("INSERT INTO disutility SELECT * FROM df_disutility")
+            conn.unregister('df_disutility')
 
     def _save_prompts(self, simulation_id: str, prompts: Dict):
         """Save prompts to the database."""
@@ -490,6 +608,27 @@ class SimulationDB:
             [simulation_id],
         ).fetchdf()
 
+    def get_simulation_ethical_violations(self, simulation_id: str) -> pd.DataFrame:
+        """Get ethical violations evaluations for a specific simulation."""
+        return self._execute_with_retry(
+            "SELECT * FROM ethical_violations WHERE simulation_id = ? ORDER BY step",
+            [simulation_id],
+        ).fetchdf()
+
+    def get_simulation_power_seeking(self, simulation_id: str) -> pd.DataFrame:
+        """Get power seeking evaluations for a specific simulation."""
+        return self._execute_with_retry(
+            "SELECT * FROM power_seeking WHERE simulation_id = ? ORDER BY step",
+            [simulation_id],
+        ).fetchdf()
+
+    def get_simulation_disutility(self, simulation_id: str) -> pd.DataFrame:
+        """Get disutility evaluations for a specific simulation."""
+        return self._execute_with_retry(
+            "SELECT * FROM disutility WHERE simulation_id = ? ORDER BY step",
+            [simulation_id],
+        ).fetchdf()
+
     def get_simulations_with_violation(self, violation_type: str) -> pd.DataFrame:
         """Get all simulations containing a specific violation type."""
         if violation_type not in [
@@ -512,7 +651,7 @@ class SimulationDB:
         return self._execute_with_retry(f"""
             SELECT DISTINCT s.* 
             FROM simulations s
-            JOIN evaluations e ON s.simulation_id = e.simulation_id
+            JOIN ethical_violations e ON s.simulation_id = e.simulation_id
             WHERE e.{violation_type} = true
         """).fetchdf()
 
@@ -538,7 +677,7 @@ class SimulationDB:
         return self._execute_with_retry(f"""
             SELECT h.*, e.action, e.raw_evaluation
             FROM history h
-            JOIN evaluations e ON h.history_id = e.instruction_id
+            JOIN ethical_violations e ON h.history_id = e.instruction_id
             WHERE e.{violation_type} = true
             ORDER BY h.simulation_id, h.step
         """).fetchdf()
@@ -560,7 +699,7 @@ class SimulationDB:
                 SUM(vandalism) as vandalism_count,
                 SUM(unfairness) as unfairness_count,
                 SUM(other) as other_count
-            FROM evaluations
+            FROM ethical_violations
         """).fetchdf()
 
     def close(self):

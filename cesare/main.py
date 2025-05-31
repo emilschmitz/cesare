@@ -1,8 +1,8 @@
 from typing import Dict, List
-from modules.agent import Agent
-from modules.environment import Environment
-from modules.evaluator import Evaluator
-from utils.database import SimulationDB
+from cesare.modules.agent import Agent
+from cesare.modules.environment import Environment
+from cesare.modules.evaluator import Evaluator
+from cesare.utils.database import SimulationDB
 import yaml
 import os
 from langsmith import Client, traceable
@@ -250,5 +250,5 @@ if __name__ == "__main__":
     with open("config/lambda-deepseek.yaml") as f:
         config = yaml.safe_load(f)
 
-    simulator = CESARE(config, prompts_file="cesare/prompts-simulation.yaml")
+    simulator = CESARE(config, prompts_file="cesare/prompts-simulation-factory.yaml")
     simulator.run_simulation()

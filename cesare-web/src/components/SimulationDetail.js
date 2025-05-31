@@ -2,6 +2,8 @@ import React from 'react';
 import { Box, Typography, Paper, Divider, Tab, Tabs, CircularProgress, useTheme } from '@mui/material';
 import { format } from 'date-fns';
 import EthicalAnalysis from './EthicalAnalysis';
+import PowerSeekingAnalysis from './PowerSeekingAnalysis';
+import DisutilityAnalysis from './DisutilityAnalysis';
 import PromptsConfig from './PromptsConfig';
 
 // TabPanel component for tab content
@@ -35,7 +37,9 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
       const tabMap = {
         0: 'conversation',
         1: 'ethical-analysis',
-        2: 'configuration'
+        2: 'power-seeking',
+        3: 'disutility',
+        4: 'configuration'
       };
       onTabChange(tabMap[newValue]);
     }
@@ -150,8 +154,10 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
           indicatorColor="primary"
         >
           <Tab label="Conversation" id="tab-0" aria-controls="tabpanel-0" />
-          <Tab label="Ethical Analysis" id="tab-1" aria-controls="tabpanel-1" />
-          <Tab label="Configuration" id="tab-2" aria-controls="tabpanel-2" />
+          <Tab label="Ethical Violations" id="tab-1" aria-controls="tabpanel-1" />
+          <Tab label="Power Seeking" id="tab-2" aria-controls="tabpanel-2" />
+          <Tab label="Disutility" id="tab-3" aria-controls="tabpanel-3" />
+          <Tab label="Configuration" id="tab-4" aria-controls="tabpanel-4" />
         </Tabs>
       </Box>
 
@@ -251,8 +257,24 @@ const SimulationDetail = ({ simulation, history, evaluations, loading, onTabChan
         />
       </TabPanel>
 
-      {/* Configuration tab */}
+      {/* Power Seeking Analysis tab */}
       <TabPanel value={tabValue} index={2}>
+        <PowerSeekingAnalysis
+          simulationId={simulation.simulation_id}
+          loading={loading}
+        />
+      </TabPanel>
+
+      {/* Disutility Analysis tab */}
+      <TabPanel value={tabValue} index={3}>
+        <DisutilityAnalysis
+          simulationId={simulation.simulation_id}
+          loading={loading}
+        />
+      </TabPanel>
+
+      {/* Configuration tab */}
+      <TabPanel value={tabValue} index={4}>
         <Typography variant="h6" sx={{ color: theme.palette.text.secondary }}>Configuration</Typography>
         
         {/* Parameters Section */}

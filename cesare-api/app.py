@@ -136,7 +136,7 @@ def get_simulation_history(simulation_id):
 
 @app.route('/api/simulations/<simulation_id>/evaluations', methods=['GET'])
 def get_simulation_evaluations(simulation_id):
-    """Get the ethical evaluations for a specific simulation."""
+    """Get all evaluations for a specific simulation (general table)."""
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "Database not found"}), 404
@@ -144,6 +144,96 @@ def get_simulation_evaluations(simulation_id):
     try:
         evaluations = conn.execute(
             "SELECT * FROM evaluations WHERE simulation_id = ? ORDER BY step", 
+            [simulation_id]
+        ).fetchdf()
+        
+        if evaluations.empty:
+            return jsonify([])
+        
+        # Convert to records format and format dates/JSON
+        evaluations_list = evaluations.to_dict(orient='records')
+        for item in evaluations_list:
+            if 'timestamp' in item and item['timestamp'] is not None:
+                item['timestamp'] = item['timestamp'].isoformat()
+            if 'raw_evaluation' in item and item['raw_evaluation'] is not None:
+                item['raw_evaluation'] = json.loads(item['raw_evaluation'])
+        
+        return jsonify(evaluations_list)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/simulations/<simulation_id>/ethical-violations', methods=['GET'])
+def get_simulation_ethical_violations(simulation_id):
+    """Get ethical violations evaluations for a specific simulation."""
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database not found"}), 404
+    
+    try:
+        evaluations = conn.execute(
+            "SELECT * FROM ethical_violations WHERE simulation_id = ? ORDER BY step", 
+            [simulation_id]
+        ).fetchdf()
+        
+        if evaluations.empty:
+            return jsonify([])
+        
+        # Convert to records format and format dates/JSON
+        evaluations_list = evaluations.to_dict(orient='records')
+        for item in evaluations_list:
+            if 'timestamp' in item and item['timestamp'] is not None:
+                item['timestamp'] = item['timestamp'].isoformat()
+            if 'raw_evaluation' in item and item['raw_evaluation'] is not None:
+                item['raw_evaluation'] = json.loads(item['raw_evaluation'])
+        
+        return jsonify(evaluations_list)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/simulations/<simulation_id>/power-seeking', methods=['GET'])
+def get_simulation_power_seeking(simulation_id):
+    """Get power seeking evaluations for a specific simulation."""
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database not found"}), 404
+    
+    try:
+        evaluations = conn.execute(
+            "SELECT * FROM power_seeking WHERE simulation_id = ? ORDER BY step", 
+            [simulation_id]
+        ).fetchdf()
+        
+        if evaluations.empty:
+            return jsonify([])
+        
+        # Convert to records format and format dates/JSON
+        evaluations_list = evaluations.to_dict(orient='records')
+        for item in evaluations_list:
+            if 'timestamp' in item and item['timestamp'] is not None:
+                item['timestamp'] = item['timestamp'].isoformat()
+            if 'raw_evaluation' in item and item['raw_evaluation'] is not None:
+                item['raw_evaluation'] = json.loads(item['raw_evaluation'])
+        
+        return jsonify(evaluations_list)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/simulations/<simulation_id>/disutility', methods=['GET'])
+def get_simulation_disutility(simulation_id):
+    """Get disutility evaluations for a specific simulation."""
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database not found"}), 404
+    
+    try:
+        evaluations = conn.execute(
+            "SELECT * FROM disutility WHERE simulation_id = ? ORDER BY step", 
             [simulation_id]
         ).fetchdf()
         
@@ -184,7 +274,7 @@ def get_simulation_violations(simulation_id, violation_type):
         # Get evaluations with the specified violation
         query = f"""
             SELECT e.*, h.content as instruction_content
-            FROM evaluations e
+            FROM ethical_violations e
             JOIN history h ON e.instruction_id = h.history_id
             WHERE e.simulation_id = ? AND e.{violation_type} = true
             ORDER BY e.step
@@ -232,7 +322,71 @@ def get_violations_summary():
                 SUM(vandalism) as vandalism,
                 SUM(unfairness) as unfairness,
                 SUM(other) as other
-            FROM evaluations
+            FROM ethical_violations
+        """
+        
+        summary = conn.execute(query).fetchdf()
+        
+        if summary.empty:
+            return jsonify({})
+        
+        # Convert to dictionary
+        summary_dict = summary.iloc[0].to_dict()
+        
+        return jsonify(summary_dict)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/power-seeking/summary', methods=['GET'])
+def get_power_seeking_summary():
+    """Get a summary of all power seeking behaviors across all simulations."""
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database not found"}), 404
+    
+    try:
+        query = """
+            SELECT 
+                SUM(physical_power) as physical_power,
+                SUM(economic_power) as economic_power,
+                SUM(informational_power) as informational_power,
+                SUM(social_power) as social_power,
+                SUM(other_power) as other_power
+            FROM power_seeking
+        """
+        
+        summary = conn.execute(query).fetchdf()
+        
+        if summary.empty:
+            return jsonify({})
+        
+        # Convert to dictionary
+        summary_dict = summary.iloc[0].to_dict()
+        
+        return jsonify(summary_dict)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/disutility/summary', methods=['GET'])
+def get_disutility_summary():
+    """Get a summary of utility changes across all simulations."""
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database not found"}), 404
+    
+    try:
+        query = """
+            SELECT 
+                SUM(CASE WHEN utility_change = 1 THEN 1 ELSE 0 END) as positive_utility,
+                SUM(CASE WHEN utility_change = 0 THEN 1 ELSE 0 END) as neutral_utility,
+                SUM(CASE WHEN utility_change = -1 THEN 1 ELSE 0 END) as negative_utility,
+                COUNT(*) as total_evaluations,
+                AVG(utility_change) as average_utility_change
+            FROM disutility
         """
         
         summary = conn.execute(query).fetchdf()
@@ -392,7 +546,7 @@ def get_experiment_violations_summary(experiment_name):
                 ), 0) as total_violations
             FROM simulations s
             JOIN experiments e ON s.experiment_id = e.experiment_id
-            LEFT JOIN evaluations ev ON s.simulation_id = ev.simulation_id
+            LEFT JOIN ethical_violations ev ON s.simulation_id = ev.simulation_id
             WHERE e.experiment_name = ?
             GROUP BY s.simulation_id, s.start_time, s.total_steps, s.total_instructions, s.config, e.experiment_name
             ORDER BY s.start_time DESC
