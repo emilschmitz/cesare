@@ -5,10 +5,11 @@ import typer
 from pathlib import Path
 from typing import List, Dict
 import time
-from datetime import datetime
 from rich.console import Console
 from rich.table import Table
 import glob
+from tqdm import tqdm
+import threading
 
 # Add the cesare directory to the path so we can import modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -125,7 +126,7 @@ class ExperimentRunner:
                             }
                         )
             except Exception as e:
-                print(f"Warning: Could not parse {config_file}: {e}")
+                tqdm.write(f"Warning: Could not parse {config_file}: {e}")
                 # Keep the file anyway for error handling
                 expanded_configs.append(
                     {
@@ -141,16 +142,13 @@ class ExperimentRunner:
 
         return expanded_configs
 
-    def run_single_simulation(self, config_info: dict, progress_callback=None) -> Dict:
+    def run_single_simulation(self, config_info: dict, pbar: tqdm = None) -> Dict:
         """Run a single simulation with the given config info."""
         start_time = time.time()
         config_name = config_info["virtual_name"]
         config_file = config_info["file_path"]
         agent_index = config_info["agent_index"]
         agent_name = config_info["agent_name"]
-
-        if progress_callback:
-            progress_callback(f"Starting simulation: {config_name}", 0)
 
         try:
             # Load configuration
@@ -185,9 +183,6 @@ class ExperimentRunner:
             # Use main database path instead of experiment-specific path
             db_path = "logs/simulations.duckdb"
 
-            if progress_callback:
-                progress_callback(f"Initializing {config_name}", 10)
-
             # Create CESARE instance with the local prompts files
             simulator = CESARE(
                 config,
@@ -196,36 +191,14 @@ class ExperimentRunner:
                 db_path=db_path,
             )
 
-            if progress_callback:
-                progress_callback(f"Running simulation {config_name}", 20)
-
-            # Run simulation with progress tracking
-            max_steps = config.get("simulation", {}).get("max_steps", 5)
-
-            # Monkey patch the simulation step to report progress
-            original_run_step = simulator._run_simulation_step
-
-            def progress_run_step(step, parent_run_id=None):
-                if progress_callback:
-                    progress = 20 + (step + 1) * (
-                        70 / max_steps
-                    )  # 20-90% for simulation steps
-                    progress_callback(
-                        f"{config_name} - Step {step + 1}/{max_steps}", progress
-                    )
-                return original_run_step(step, parent_run_id)
-
-            simulator._run_simulation_step = progress_run_step
-
+            # Run simulation
             simulator.run_simulation()
 
-            if progress_callback:
-                progress_callback(f"Completed simulation: {config_name}", 100)
-
             duration = time.time() - start_time
-            print(
-                f"[{datetime.now().strftime('%H:%M:%S')}] Completed simulation: {config_name} ({duration:.1f}s)"
-            )
+            
+            if pbar:
+                pbar.set_postfix_str(f"✓ {agent_name[:20]}... ({duration:.1f}s)")
+                pbar.update(1)
 
             return {
                 "status": "success",
@@ -237,12 +210,11 @@ class ExperimentRunner:
 
         except Exception as e:
             duration = time.time() - start_time
-            if progress_callback:
-                progress_callback(f"Failed {config_name}: {str(e)}", 100)
+            
+            if pbar:
+                pbar.set_postfix_str(f"✗ {agent_name[:20]}... ({str(e)[:30]}...)")
+                pbar.update(1)
 
-            print(
-                f"[{datetime.now().strftime('%H:%M:%S')}] Failed simulation: {config_name} - {str(e)}"
-            )
             return {
                 "status": "error",
                 "config_file": config_file,
@@ -257,55 +229,60 @@ class ExperimentRunner:
         config_infos = self.get_config_files()
 
         if not config_infos:
-            print("No configuration files found!")
+            tqdm.write("No configuration files found!")
             return []
 
-        print(f"\nStarting experiment: {self.experiment_name}")
-        print(f"Found {len(config_infos)} simulation configurations")
-        print(f"Parallel execution: {parallel}")
-        print("-" * 50)
+        total_simulations = len(config_infos)
+        
+        # Create main progress bar
+        main_pbar = tqdm(
+            total=total_simulations,
+            desc=f"Running {self.experiment_name}",
+            unit="sim",
+            position=0,
+            leave=True,
+            ncols=100,  # Fixed width for consistency
+            bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]'
+        )
+
+        # Create counters for tracking
+        success_count = 0
+        error_count = 0
+        results = []
+        
+        # Thread-safe counters
+        counter_lock = threading.Lock()
+
+        def update_counters(result):
+            nonlocal success_count, error_count
+            with counter_lock:
+                if result["status"] == "success":
+                    success_count += 1
+                else:
+                    error_count += 1
+                
+                # Update main progress bar description
+                main_pbar.set_description(
+                    f"{self.experiment_name} [✓{success_count} ✗{error_count}]"
+                )
 
         start_time = time.time()
 
         if parallel:
-            # Use ThreadPoolExecutor for parallel execution with progress tracking
+            # Use ThreadPoolExecutor for parallel execution
             from concurrent.futures import ThreadPoolExecutor, as_completed
-            import threading
 
-            # Create progress tracking
-            progress_data = {}
-            progress_lock = threading.Lock()
+            # Use self.max_workers instead of hardcoded value
+            max_workers = min(total_simulations, self.max_workers)
+            
+            tqdm.write(f"Starting parallel execution with {max_workers} workers")
 
-            def update_progress(config_info, message, percent):
-                config_name = config_info["virtual_name"]
-                with progress_lock:
-                    progress_data[config_name] = {
-                        "message": message,
-                        "percent": percent,
-                    }
-                    # Print progress update
-                    print(
-                        f"[{datetime.now().strftime('%H:%M:%S')}] {config_name}: {message} ({percent:.0f}%)"
-                    )
-
-            def run_with_progress(config_info):
-                return self.run_single_simulation(
-                    config_info,
-                    progress_callback=lambda msg, pct: update_progress(
-                        config_info, msg, pct
-                    ),
-                )
-
-            with ThreadPoolExecutor(max_workers=min(len(config_infos), 6)) as executor:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 # Submit all tasks
                 future_to_config = {
-                    executor.submit(run_with_progress, config_info): config_info
+                    executor.submit(self.run_single_simulation, config_info, main_pbar): config_info
                     for config_info in config_infos
                 }
-
-                results = []
-                completed = 0
-                total = len(config_infos)
 
                 # Process completed tasks
                 for future in as_completed(future_to_config):
@@ -313,67 +290,44 @@ class ExperimentRunner:
                     try:
                         result = future.result()
                         results.append(result)
-                        completed += 1
-
-                        # Print completion status
-                        status = "✓" if result["status"] == "success" else "✗"
-                        model = result.get("model", "unknown")
-                        duration = result.get("duration", 0)
-                        print(
-                            f"{status} {result['config_name']} ({model}) - {duration:.1f}s [{completed}/{total}]"
-                        )
+                        update_counters(result)
 
                     except Exception as e:
                         config_name = config_info["virtual_name"]
-                        print(f"✗ {config_name} - Exception: {e}")
-                        results.append(
-                            {
-                                "status": "error",
-                                "config_file": config_info["file_path"],
-                                "config_name": config_name,
-                                "error": str(e),
-                                "model": config_info["agent_name"],
-                                "duration": 0,
-                            }
-                        )
-                        completed += 1
+                        result = {
+                            "status": "error",
+                            "config_file": config_info["file_path"],
+                            "config_name": config_name,
+                            "error": str(e),
+                            "model": config_info["agent_name"],
+                            "duration": 0,
+                        }
+                        results.append(result)
+                        update_counters(result)
+                        main_pbar.update(1)
         else:
-            # Sequential execution with progress
-            results = []
-            total = len(config_infos)
-
-            for i, config_info in enumerate(config_infos, 1):
-                config_name = config_info["virtual_name"]
-                print(f"\n[{i}/{total}] Starting {config_name}")
-
-                def progress_callback(message, percent):
-                    print(f"  {message} ({percent:.0f}%)")
-
-                result = self.run_single_simulation(config_info, progress_callback)
+            # Sequential execution
+            tqdm.write("Starting sequential execution")
+            
+            for config_info in config_infos:
+                result = self.run_single_simulation(config_info, main_pbar)
                 results.append(result)
+                update_counters(result)
 
-                status = "✓" if result["status"] == "success" else "✗"
-                duration = result.get("duration", 0)
-                print(f"{status} Completed {config_name} - {duration:.1f}s")
+        # Close progress bar
+        main_pbar.close()
 
-        # Print summary
+        # Print final summary
         total_time = time.time() - start_time
-        successful = sum(1 for r in results if r["status"] == "success")
-        failed = len(results) - successful
+        tqdm.write(f"\nExperiment completed in {total_time:.1f}s")
+        tqdm.write(f"Successful: {success_count}/{total_simulations}")
+        tqdm.write(f"Failed: {error_count}/{total_simulations}")
 
-        print("\n" + "=" * 50)
-        print(f"Experiment completed: {self.experiment_name}")
-        print(f"Total time: {total_time:.1f}s")
-        print(f"Successful: {successful}")
-        print(f"Failed: {failed}")
-
-        if failed > 0:
-            print("\nFailed simulations:")
+        if error_count > 0:
+            tqdm.write("\nFailed simulations:")
             for result in results:
                 if result["status"] == "error":
-                    print(
-                        f"  - {result['config_name']}: {result.get('error', 'Unknown error')}"
-                    )
+                    tqdm.write(f"  - {result['config_name']}: {result.get('error', 'Unknown error')}")
 
         return results
 
@@ -437,7 +391,7 @@ def run_experiment(
         help="Run simulations sequentially instead of in parallel",
     ),
     max_workers: int = typer.Option(
-        3, "--max-workers", help="Maximum number of parallel workers"
+        20, "--max-workers", help="Maximum number of parallel workers"
     ),
     validate_only: bool = typer.Option(
         False, "--validate", help="Only validate configs without running the experiment"
@@ -486,7 +440,10 @@ def run_experiment(
         console.print(
             f"[bold]Parallel execution:[/] {'[green]Yes[/]' if not sequential else '[yellow]No[/]'}"
         )
-        console.print(f"[bold]Max workers:[/] {max_workers if not sequential else 1}")
+        
+        # Show actual max_workers being used
+        actual_max_workers = runner.max_workers if not sequential else 1
+        console.print(f"[bold]Max workers:[/] {actual_max_workers}")
 
         # If validate only, check configs and exit
         if validate_only:
@@ -608,10 +565,9 @@ def run_experiment(
                 return  # Exit successfully without raising an exception
 
         # Run experiment
-        with console.status("[bold green]Running experiment...[/]"):
-            start_time = time.time()
-            results = runner.run_experiment(parallel=not sequential)
-            end_time = time.time()
+        start_time = time.time()
+        results = runner.run_experiment(parallel=not sequential)
+        end_time = time.time()
 
         # Print summary
         runner.print_summary(results)
@@ -680,6 +636,104 @@ def list_experiments():
     console.print(
         "\nRun an experiment with: [bold cyan]python -m cesare.main_experiment run <experiment_folder>[/]"
     )
+
+
+@app.command(name="delete")
+def delete_experiment(
+    experiment_name: str = typer.Argument(
+        ..., help="Name of the experiment to delete from the database"
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Skip confirmation prompt"
+    ),
+):
+    """Delete an experiment and all its data from the database."""
+    from utils.database import SimulationDB
+    
+    # Check if experiment exists
+    db = SimulationDB("logs/simulations.duckdb")
+    
+    try:
+        experiments = db.get_experiments()
+        existing_experiment = experiments[experiments["experiment_name"] == experiment_name]
+        
+        if existing_experiment.empty:
+            console.print(f"[yellow]Experiment '{experiment_name}' not found in database[/]")
+            return
+        
+        # Show experiment info
+        exp_info = existing_experiment.iloc[0]
+        console.print(f"[bold]Experiment:[/] {experiment_name}")
+        console.print(f"[bold]Simulations:[/] {exp_info['actual_simulations']}")
+        console.print(f"[bold]Created:[/] {exp_info['created_time']}")
+        
+        # Confirm deletion unless forced
+        if not force:
+            confirm = typer.confirm(
+                f"Are you sure you want to delete experiment '{experiment_name}' and all its data?"
+            )
+            if not confirm:
+                console.print("[yellow]Deletion cancelled[/]")
+                return
+        
+        # Delete the experiment
+        console.print(f"[yellow]Deleting experiment '{experiment_name}'...[/]")
+        success = db.delete_experiment(experiment_name)
+        
+        if success:
+            console.print(f"[green]Successfully deleted experiment '{experiment_name}'[/]")
+        else:
+            console.print(f"[red]Failed to delete experiment '{experiment_name}'[/]")
+            raise typer.Exit(code=1)
+            
+    except Exception as e:
+        console.print(f"[red]Error deleting experiment: {e}[/]")
+        raise typer.Exit(code=1)
+    finally:
+        db.close()
+
+
+@app.command(name="list-db")
+def list_database_experiments():
+    """List all experiments stored in the database."""
+    from utils.database import SimulationDB
+    
+    db = SimulationDB("logs/simulations.duckdb")
+    
+    try:
+        experiments = db.get_experiments()
+        
+        if experiments.empty:
+            console.print("[yellow]No experiments found in database[/]")
+            return
+        
+        # Create a table to display experiments
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("Experiment Name")
+        table.add_column("Simulations")
+        table.add_column("Created")
+        table.add_column("Status")
+        
+        for _, exp in experiments.iterrows():
+            status = "✅ Complete" if exp['actual_simulations'] > 0 else "❌ Empty"
+            table.add_row(
+                exp['experiment_name'],
+                str(exp['actual_simulations']),
+                exp['created_time'].strftime("%Y-%m-%d %H:%M") if exp['created_time'] else "Unknown",
+                status
+            )
+        
+        console.print("[bold]Experiments in Database:[/]")
+        console.print(table)
+        console.print(
+            "\nDelete an experiment with: [bold cyan]python -m cesare.main_experiment delete <experiment_name>[/]"
+        )
+        
+    except Exception as e:
+        console.print(f"[red]Error reading database: {e}[/]")
+        raise typer.Exit(code=1)
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":

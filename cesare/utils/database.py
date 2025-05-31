@@ -11,6 +11,8 @@ import fcntl
 import random
 from contextlib import contextmanager
 
+# Global lock for experiment creation to prevent concurrent schema conflicts
+_experiment_creation_lock = threading.Lock()
 
 class SimulationDB:
     def __init__(self, db_path: str = "logs/simulations.duckdb"):
@@ -76,9 +78,10 @@ class SimulationDB:
                 except OSError:
                     pass
 
-    def _execute_with_retry(self, query, params=None, max_retries=5):
+    def _execute_with_retry(self, query, params=None, max_retries=150):
         """Execute a query with retry logic and exponential backoff with jitter."""
         last_exception = None
+        query_type = query.strip().split()[0].upper() if query.strip() else "UNKNOWN"
 
         for attempt in range(max_retries):
             try:
@@ -91,7 +94,7 @@ class SimulationDB:
                 last_exception = e
                 error_str = str(e).lower()
 
-                # Check if it's a retryable error
+                # Check if it's a retryable error - enhanced for DuckDB conflicts
                 if any(
                     keyword in error_str
                     for keyword in [
@@ -101,15 +104,30 @@ class SimulationDB:
                         "io error",
                         "could not set lock",
                         "conflicting lock",
+                        "write-write conflict",
+                        "catalog write-write conflict",
+                        "transactioncontext error",
+                        "transaction conflict",
+                        "alter with",
+                        "concurrent modification",
+                        "schema modification",
                     ]
                 ):
                     if attempt == max_retries - 1:
+                        # Log the final failure with details
+                        print(f"DB RETRY FAILED: {query_type} query failed after {max_retries} attempts")
+                        print(f"Query: {query[:100]}...")
+                        print(f"Error: {str(e)}")
                         break
 
-                    # Exponential backoff with random jitter
-                    base_delay = 0.1 * (2**attempt)
-                    jitter = random.uniform(0.5, 1.5)
-                    delay = base_delay * jitter
+                    # Log retry attempts for conflicts (but not too frequently)
+                    if attempt % 10 == 0 and attempt > 0:
+                        print(f"DB RETRY: {query_type} attempt {attempt+1}/{max_retries} - {str(e)[:50]}...")
+
+                    # Exponential backoff with random jitter - longer delays for conflicts
+                    base_delay = 0.2 * (2**min(attempt, 10))  # Cap exponential growth at 2^10
+                    jitter = random.uniform(0.5, 2.0)  # Increased jitter range
+                    delay = min(base_delay * jitter, 15.0)  # Cap at 15 seconds
                     time.sleep(delay)
 
                     # Close and recreate connection on lock errors
@@ -328,7 +346,11 @@ class SimulationDB:
             # Handle experiment
             experiment_id = None
             if experiment_name:
-                experiment_id = self._ensure_experiment_exists(experiment_name, config)
+                try:
+                    experiment_id = self._ensure_experiment_exists(experiment_name, config)
+                except Exception as e:
+                    print(f"DB CONFLICT: Failed to ensure experiment exists for {experiment_name}: {e}")
+                    raise
 
             # Extract start and end time from history if available
             start_time = datetime.datetime.now()
@@ -340,48 +362,68 @@ class SimulationDB:
             }
 
             # Insert simulation record
-            self._execute_with_retry(
-                """
-                INSERT INTO simulations 
-                (simulation_id, experiment_id, start_time, end_time, total_steps, total_instructions, config, metadata, ai_key, environment_key)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    simulation_id,
-                    experiment_id,
-                    start_time,
-                    end_time,
-                    metrics.get("total_steps", 0) if metrics else 0,
-                    metrics.get("total_instructions", 0) if metrics else 0,
-                    json.dumps(config or {}),
-                    json.dumps(metadata),
-                    ai_key,
-                    environment_key,
-                ),
-            )
+            try:
+                self._execute_with_retry(
+                    """
+                    INSERT INTO simulations 
+                    (simulation_id, experiment_id, start_time, end_time, total_steps, total_instructions, config, metadata, ai_key, environment_key)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        simulation_id,
+                        experiment_id,
+                        start_time,
+                        end_time,
+                        metrics.get("total_steps", 0) if metrics else 0,
+                        metrics.get("total_instructions", 0) if metrics else 0,
+                        json.dumps(config or {}),
+                        json.dumps(metadata),
+                        ai_key,
+                        environment_key,
+                    ),
+                )
+            except Exception as e:
+                print(f"DB CONFLICT: Failed to insert simulation {simulation_id}: {e}")
+                raise
 
             # Update experiment completion count
             if experiment_id:
-                self._execute_with_retry(
-                    """
-                    UPDATE experiments 
-                    SET completed_simulations = completed_simulations + 1
-                    WHERE experiment_id = ?
-                    """,
-                    (experiment_id,),
-                )
+                try:
+                    self._execute_with_retry(
+                        """
+                        UPDATE experiments 
+                        SET completed_simulations = completed_simulations + 1
+                        WHERE experiment_id = ?
+                        """,
+                        (experiment_id,),
+                    )
+                except Exception as e:
+                    print(f"DB CONFLICT: Failed to update experiment completion count for {experiment_name}: {e}")
+                    raise
 
             # Save history entries
             if history:
-                self._save_history(simulation_id, history)
+                try:
+                    self._save_history(simulation_id, history)
+                except Exception as e:
+                    print(f"DB CONFLICT: Failed to save history for {simulation_id}: {e}")
+                    raise
 
             # Save evaluations if provided
             if evaluations:
-                self._save_evaluations(simulation_id, evaluations, history, ai_key)
+                try:
+                    self._save_evaluations(simulation_id, evaluations, history, ai_key)
+                except Exception as e:
+                    print(f"DB CONFLICT: Failed to save evaluations for {simulation_id}: {e}")
+                    raise
 
             # Save prompts if provided
             if prompts:
-                self._save_prompts(simulation_id, prompts)
+                try:
+                    self._save_prompts(simulation_id, prompts)
+                except Exception as e:
+                    print(f"DB CONFLICT: Failed to save prompts for {simulation_id}: {e}")
+                    raise
 
             return simulation_id
 
@@ -390,7 +432,7 @@ class SimulationDB:
     ) -> str:
         """
         Ensure an experiment exists in the database, create if it doesn't.
-        Note: This method assumes it's called within a file lock context.
+        Uses global lock to prevent concurrent creation conflicts.
 
         Args:
             experiment_name (str): Name of the experiment
@@ -401,33 +443,66 @@ class SimulationDB:
         """
         experiment_id = self._generate_id(f"exp_{experiment_name}")
 
-        # Extract metadata from config if available
-        metadata = {}
-        if config:
-            metadata = {
-                "provider": config.get("provider"),
-                "environment_model": config.get("models", {}).get("environment"),
-                "evaluator_model": config.get("models", {}).get("evaluator"),
-                "max_steps": config.get("simulation", {}).get("max_steps"),
-            }
+        # Use global lock to prevent concurrent experiment creation
+        with _experiment_creation_lock:
+            # First, check if experiment already exists
+            try:
+                existing = self._execute_with_retry(
+                    "SELECT experiment_id FROM experiments WHERE experiment_name = ?",
+                    (experiment_name,)
+                ).fetchall()
+                
+                if existing:
+                    return existing[0][0]
+            except Exception as e:
+                print(f"DB CONFLICT: Error checking existing experiment {experiment_name}: {e}")
+                # Continue to try creating it
 
-        # Use INSERT OR IGNORE to handle concurrent creation
-        self._execute_with_retry(
-            """
-            INSERT OR IGNORE INTO experiments 
-            (experiment_id, experiment_name, description, created_time, metadata)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (
-                experiment_id,
-                experiment_name,
-                f"Experiment: {experiment_name}",
-                datetime.datetime.now(),
-                json.dumps(metadata),
-            ),
-        )
+            # Extract metadata from config if available
+            metadata = {}
+            if config:
+                metadata = {
+                    "provider": config.get("provider"),
+                    "environment_model": config.get("models", {}).get("environment"),
+                    "evaluator_model": config.get("models", {}).get("evaluator"),
+                    "max_steps": config.get("simulation", {}).get("max_steps"),
+                }
 
-        return experiment_id
+            # Try to create the experiment with higher retry count for this critical operation
+            try:
+                self._execute_with_retry(
+                    """
+                    INSERT OR IGNORE INTO experiments 
+                    (experiment_id, experiment_name, description, created_time, metadata)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        experiment_id,
+                        experiment_name,
+                        f"Experiment: {experiment_name}",
+                        datetime.datetime.now(),
+                        json.dumps(metadata),
+                    ),
+                    max_retries=300  # Even higher retry count for experiment creation
+                )
+            except Exception as e:
+                print(f"DB CONFLICT: Failed to create experiment {experiment_name} after 300 retries: {e}")
+                # Try one more time to get the experiment ID in case another thread created it
+                try:
+                    existing = self._execute_with_retry(
+                        "SELECT experiment_id FROM experiments WHERE experiment_name = ?",
+                        (experiment_name,)
+                    ).fetchall()
+                    
+                    if existing:
+                        return existing[0][0]
+                except Exception:
+                    pass
+                
+                # If all else fails, raise the original error
+                raise
+
+            return experiment_id
 
     def _save_history(self, simulation_id: str, history: List[Dict]):
         """Save history entries to the database."""
@@ -825,3 +900,90 @@ class SimulationDB:
         """,
             (experiment_name,),
         ).fetchdf()
+
+    def delete_experiment(self, experiment_name: str) -> bool:
+        """
+        Delete an experiment and all its associated data from the database.
+        
+        Args:
+            experiment_name (str): Name of the experiment to delete
+            
+        Returns:
+            bool: True if experiment was found and deleted, False if not found
+        """
+        with self._file_lock(timeout=60):
+            try:
+                # First check if experiment exists
+                experiments = self._execute_with_retry(
+                    "SELECT experiment_id FROM experiments WHERE experiment_name = ?",
+                    (experiment_name,)
+                ).fetchall()
+                
+                if not experiments:
+                    return False
+                
+                experiment_id = experiments[0][0]
+                
+                # Get all simulation IDs for this experiment
+                simulations = self._execute_with_retry(
+                    "SELECT simulation_id FROM simulations WHERE experiment_id = ?",
+                    (experiment_id,)
+                ).fetchall()
+                
+                simulation_ids = [sim[0] for sim in simulations]
+                
+                # Delete in reverse order of dependencies
+                for sim_id in simulation_ids:
+                    # Delete evaluations
+                    self._execute_with_retry(
+                        "DELETE FROM evaluations WHERE simulation_id = ?",
+                        (sim_id,)
+                    )
+                    
+                    # Delete ethical violations
+                    self._execute_with_retry(
+                        "DELETE FROM ethical_violations WHERE simulation_id = ?",
+                        (sim_id,)
+                    )
+                    
+                    # Delete power seeking
+                    self._execute_with_retry(
+                        "DELETE FROM power_seeking WHERE simulation_id = ?",
+                        (sim_id,)
+                    )
+                    
+                    # Delete disutility
+                    self._execute_with_retry(
+                        "DELETE FROM disutility WHERE simulation_id = ?",
+                        (sim_id,)
+                    )
+                    
+                    # Delete history
+                    self._execute_with_retry(
+                        "DELETE FROM history WHERE simulation_id = ?",
+                        (sim_id,)
+                    )
+                    
+                    # Delete prompts
+                    self._execute_with_retry(
+                        "DELETE FROM prompts WHERE simulation_id = ?",
+                        (sim_id,)
+                    )
+                
+                # Delete simulations
+                self._execute_with_retry(
+                    "DELETE FROM simulations WHERE experiment_id = ?",
+                    (experiment_id,)
+                )
+                
+                # Delete experiment
+                self._execute_with_retry(
+                    "DELETE FROM experiments WHERE experiment_id = ?",
+                    (experiment_id,)
+                )
+                
+                return True
+                
+            except Exception as e:
+                print(f"Error deleting experiment {experiment_name}: {e}")
+                return False
