@@ -61,17 +61,22 @@ class ExperimentRunner:
                 'config_file': os.path.basename(config_file)
             }
             
+            # Use local prompt files from the experiment folder
+            experiment_path = Path(self.experiment_folder)
+            prompts_file = str(experiment_path / "prompts" / "simulation.yaml")
+            evaluation_prompts_file = str(experiment_path / "prompts" / "evaluations.yaml")
+            
             # Use main database path instead of experiment-specific path
             db_path = "logs/simulations.duckdb"
             
             if progress_callback:
                 progress_callback(f"Initializing {config_name}", 10)
             
-            # Create CESARE instance with the selected prompts file
+            # Create CESARE instance with the local prompts files
             simulator = CESARE(
                 config,
-                prompts_file=self.prompts_file,
-                evaluation_prompts_file="cesare/prompts-evaluation.yaml",
+                prompts_file=prompts_file,
+                evaluation_prompts_file=evaluation_prompts_file,
                 db_path=db_path
             )
             
