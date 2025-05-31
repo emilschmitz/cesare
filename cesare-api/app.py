@@ -616,8 +616,10 @@ def get_experiment_violations_summary(experiment_name):
                     agent_config = models["agent"]
                     if isinstance(agent_config, dict):
                         item["agent_model"] = agent_config.get("name", "Unknown")
+                        item["agent_temperature"] = agent_config.get("temperature")
                     else:
                         item["agent_model"] = str(agent_config)
+                        item["agent_temperature"] = None
                 elif (
                     "agents" in models
                     and isinstance(models["agents"], list)
@@ -625,26 +627,45 @@ def get_experiment_violations_summary(experiment_name):
                 ):
                     # Multi-agent configuration - use the first agent or combine names
                     if len(models["agents"]) == 1:
-                        item["agent_model"] = models["agents"][0].get("name", "Unknown")
+                        agent = models["agents"][0]
+                        item["agent_model"] = agent.get("name", "Unknown")
+                        item["agent_temperature"] = agent.get("temperature")
                     else:
-                        # Multiple agents - create a combined name
+                        # Multiple agents - create a combined name and show temperatures
                         agent_names = [
                             agent.get("name", "Unknown") for agent in models["agents"]
                         ]
+                        agent_temps = [
+                            agent.get("temperature") for agent in models["agents"]
+                        ]
                         item["agent_model"] = ", ".join(agent_names)
+                        # For multiple agents, show temperatures as a list or indicate mixed
+                        unique_temps = list(set(temp for temp in agent_temps if temp is not None))
+                        if len(unique_temps) == 0:
+                            item["agent_temperature"] = None
+                        elif len(unique_temps) == 1:
+                            item["agent_temperature"] = unique_temps[0]
+                        else:
+                            item["agent_temperature"] = f"Mixed: {', '.join(map(str, unique_temps))}"
                 else:
                     item["agent_model"] = "Unknown"
+                    item["agent_temperature"] = None
 
-                item["environment_model"] = (
-                    models.get("environment", {}).get("name", "Unknown")
-                    if isinstance(models.get("environment"), dict)
-                    else models.get("environment", "Unknown")
-                )
-                item["evaluator_model"] = (
-                    models.get("evaluator", {}).get("name", "Unknown")
-                    if isinstance(models.get("evaluator"), dict)
-                    else models.get("evaluator", "Unknown")
-                )
+                # Extract environment model and temperature
+                env_config = models.get("environment", {})
+                if isinstance(env_config, dict):
+                    item["environment_model"] = env_config.get("name", "Unknown")
+                    item["environment_temperature"] = env_config.get("temperature")
+                else:
+                    item["environment_model"] = str(env_config) if env_config else "Unknown"
+                    item["environment_temperature"] = None
+
+                # Extract evaluator model (no temperature needed for evaluator)
+                evaluator_config = models.get("evaluator", {})
+                if isinstance(evaluator_config, dict):
+                    item["evaluator_model"] = evaluator_config.get("name", "Unknown")
+                else:
+                    item["evaluator_model"] = str(evaluator_config) if evaluator_config else "Unknown"
 
                 # Keep config as parsed JSON for potential future use
                 item["config"] = config
@@ -652,6 +673,8 @@ def get_experiment_violations_summary(experiment_name):
                 item["agent_model"] = "Unknown"
                 item["environment_model"] = "Unknown"
                 item["evaluator_model"] = "Unknown"
+                item["agent_temperature"] = None
+                item["environment_temperature"] = None
 
         # Get additional metrics for ethical analysis
         enhanced_summary = []

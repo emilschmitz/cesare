@@ -92,6 +92,8 @@ const ExperimentViolationsSummary = ({ experimentName }) => {
 
     const headers = [
       'Model',
+      'Agent Temperature',
+      'Environment Temperature',
       'Total Steps',
       'Total Instructions', 
       'Total Violations',
@@ -107,6 +109,8 @@ const ExperimentViolationsSummary = ({ experimentName }) => {
       headers.join(','),
       ...data.simulations.map(sim => [
         `"${getModelDisplayName(sim.agent_model)}"`,
+        sim.agent_temperature !== null && sim.agent_temperature !== undefined ? sim.agent_temperature : 'N/A',
+        sim.environment_temperature !== null && sim.environment_temperature !== undefined ? sim.environment_temperature : 'N/A',
         sim.total_steps || 0,
         sim.total_instructions || 0,
         sim.total_violations,
@@ -154,14 +158,14 @@ const ExperimentViolationsSummary = ({ experimentName }) => {
     markdown += `- **Average Ethical Risk Score:** ${avgRiskScore.toFixed(2)}\n\n`;
 
     // Create table header
-    markdown += '| Model | Steps | Instructions | Violations | Risk Score | Power Seeking | Disutility |';
+    markdown += '| Model | Agent Temp | Env Temp | Steps | Instructions | Violations | Risk Score | Power Seeking | Disutility |';
     violationTypes.forEach(type => {
       markdown += ` ${formatViolationType(type)} |`;
     });
     markdown += '\n';
 
     // Create separator row
-    markdown += '|-------|-------|-------------|------------|------------|---------------|------------|';
+    markdown += '|-------|-----------|----------|-------|-------------|------------|------------|---------------|------------|';
     violationTypes.forEach(() => {
       markdown += '----------|';
     });
@@ -170,7 +174,9 @@ const ExperimentViolationsSummary = ({ experimentName }) => {
     // Add data rows
     data.simulations.forEach(sim => {
       const modelName = getModelDisplayName(sim.agent_model);
-      markdown += `| ${modelName} | ${sim.total_steps || 0} | ${sim.total_instructions || 0} | ${sim.total_violations} | ${sim.ethical_risk_score || 0} | ${sim.total_power_seeking || 0} | ${sim.total_disutility || 0} |`;
+      const agentTemp = sim.agent_temperature !== null && sim.agent_temperature !== undefined ? sim.agent_temperature : 'N/A';
+      const envTemp = sim.environment_temperature !== null && sim.environment_temperature !== undefined ? sim.environment_temperature : 'N/A';
+      markdown += `| ${modelName} | ${agentTemp} | ${envTemp} | ${sim.total_steps || 0} | ${sim.total_instructions || 0} | ${sim.total_violations} | ${sim.ethical_risk_score || 0} | ${sim.total_power_seeking || 0} | ${sim.total_disutility || 0} |`;
       violationTypes.forEach(type => {
         markdown += ` ${sim[type]} |`;
       });
@@ -312,6 +318,8 @@ const ExperimentViolationsSummary = ({ experimentName }) => {
           <TableHead>
             <TableRow>
               <TableCell><strong>Model</strong></TableCell>
+              <TableCell align="center"><strong>Agent Temp</strong></TableCell>
+              <TableCell align="center"><strong>Env Temp</strong></TableCell>
               <TableCell align="center"><strong>Steps</strong></TableCell>
               <TableCell align="center"><strong>Instructions</strong></TableCell>
               <TableCell align="center"><strong>Total Violations</strong></TableCell>
@@ -336,6 +344,12 @@ const ExperimentViolationsSummary = ({ experimentName }) => {
                         {modelName}
                       </Typography>
                     </Tooltip>
+                  </TableCell>
+                  <TableCell align="center">
+                    {sim.agent_temperature !== null && sim.agent_temperature !== undefined ? sim.agent_temperature : 'N/A'}
+                  </TableCell>
+                  <TableCell align="center">
+                    {sim.environment_temperature !== null && sim.environment_temperature !== undefined ? sim.environment_temperature : 'N/A'}
                   </TableCell>
                   <TableCell align="center">{sim.total_steps || 0}</TableCell>
                   <TableCell align="center">{sim.total_instructions || 0}</TableCell>
