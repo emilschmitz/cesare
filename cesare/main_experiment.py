@@ -61,6 +61,9 @@ class ExperimentRunner:
                 'config_file': os.path.basename(config_file)
             }
             
+            # Extract agent model name for reporting (new format only)
+            agent_model_name = config.get('models', {}).get('agent', {}).get('name', 'unknown')
+            
             # Use local prompt files from the experiment folder
             experiment_path = Path(self.experiment_folder)
             prompts_file = str(experiment_path / "prompts" / "simulation.yaml")
@@ -108,7 +111,7 @@ class ExperimentRunner:
                 'status': 'success',
                 'config_file': config_file,
                 'config_name': config_name,
-                'model': config.get('models', {}).get('agent', 'unknown'),
+                'model': agent_model_name,
                 'duration': duration
             }
             
@@ -253,7 +256,7 @@ class ExperimentRunner:
             status = "✅" if result["status"] == "success" else "❌"
             status_color = "green" if result["status"] == "success" else "red"
             duration_str = f"{result['duration']:.1f}s" if "duration" in result else "N/A"
-            agent_model = result.get("agent_model", "Unknown")
+            agent_model = result.get("model", "Unknown")
             
             table.add_row(
                 f"[{status_color}]{status}[/]",
@@ -323,13 +326,25 @@ def run_experiment(
                         with open(config_file) as f:
                             config = yaml.safe_load(f)
                         
-                        # Basic validation
-                        if "provider" not in config:
-                            errors.append((config_file, "Missing 'provider' field"))
+                        # Validation for new flexible format only
                         if "models" not in config:
                             errors.append((config_file, "Missing 'models' section"))
-                        elif not all(k in config["models"] for k in ["agent", "environment", "evaluator"]):
-                            errors.append((config_file, "Missing required models: agent, environment, evaluator"))
+                        else:
+                            models = config["models"]
+                            required_models = ["agent", "environment", "evaluator"]
+                            missing_models = [m for m in required_models if m not in models]
+                            if missing_models:
+                                errors.append((config_file, f"Missing required models: {', '.join(missing_models)}"))
+                            
+                            # Validate model format (must have name and provider)
+                            for model_key, model_config in models.items():
+                                if not isinstance(model_config, dict):
+                                    errors.append((config_file, f"Model '{model_key}' must be a dict with 'name' and 'provider' fields"))
+                                else:
+                                    if "name" not in model_config:
+                                        errors.append((config_file, f"Model '{model_key}' missing 'name' field"))
+                                    if "provider" not in model_config:
+                                        errors.append((config_file, f"Model '{model_key}' missing 'provider' field"))
                     except Exception as e:
                         errors.append((config_file, f"Error parsing config: {str(e)}"))
             
@@ -341,7 +356,7 @@ def run_experiment(
                 raise typer.Exit(code=1)
             else:
                 console.print("\n[bold green]All configurations are valid![/]")
-                raise typer.Exit(code=0)
+                return  # Exit successfully without raising an exception
         
         # Run experiment
         with console.status("[bold green]Running experiment...[/]"):
@@ -359,6 +374,9 @@ def run_experiment(
         if failed_count > 0:
             raise typer.Exit(code=1)
             
+    except typer.Exit:
+        # Re-raise typer.Exit exceptions to preserve exit codes
+        raise
     except KeyboardInterrupt:
         console.print("\n\n[bold red]Experiment interrupted by user[/]")
         raise typer.Exit(code=1)
@@ -390,14 +408,16 @@ def list_experiments():
         name = os.path.basename(folder)
         configs = glob.glob(f"{folder}/*.yaml")
         
-        # Extract unique models
+        # Extract unique models (new format only)
         models = set()
         for config_file in configs:
             try:
                 with open(config_file) as f:
                     config = yaml.safe_load(f)
                 if "models" in config and "agent" in config["models"]:
-                    models.add(config["models"]["agent"])
+                    agent_config = config["models"]["agent"]
+                    # New format only: {name: "model_name", provider: "provider_name"}
+                    models.add(agent_config.get('name', 'unknown'))
             except (KeyError, TypeError, yaml.YAMLError):
                 pass
         

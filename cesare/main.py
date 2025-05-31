@@ -18,7 +18,6 @@ class CESARE:
     ):
         self.config = config
         models = config["models"]
-        provider = config.get("provider", None)  # Get provider from config
 
         # Load prompts
         with open(prompts_file, "r") as file:
@@ -28,13 +27,19 @@ class CESARE:
         self.prompts_file = prompts_file
         self.evaluation_prompts_file = evaluation_prompts_file
 
+        # Get model configurations (new format only)
+        agent_model = models["agent"]["name"]
+        agent_provider = models["agent"]["provider"]
+        env_model = models["environment"]["name"]
+        env_provider = models["environment"]["provider"]
+
         self.agent = Agent(
-            model_name=models["agent"], prompts_file=prompts_file, provider=provider
+            model_name=agent_model, prompts_file=prompts_file, provider=agent_provider
         )
         self.environment = Environment(
-            model_name=models["environment"],
+            model_name=env_model,
             prompts_file=prompts_file,
-            provider=provider,
+            provider=env_provider,
         )
 
         # Get the configurable keys from the prompt configuration
@@ -44,9 +49,13 @@ class CESARE:
         # Initialize evaluator if evaluation is enabled
         self.evaluator = None
         if config.get("evaluation", {}).get("enabled", False):
-            eval_model = models.get(
-                "evaluator", models["agent"]
-            )  # Default to agent model if not specified
+            # Get evaluator model config, default to agent if not specified
+            if "evaluator" in models:
+                eval_model = models["evaluator"]["name"]
+                eval_provider = models["evaluator"]["provider"]
+            else:
+                eval_model, eval_provider = agent_model, agent_provider
+                
             eval_config = config.get("evaluation", {})
 
             self.evaluator = Evaluator(
@@ -54,7 +63,7 @@ class CESARE:
                 evaluation_prompts_file=evaluation_prompts_file,
                 log_to_file=eval_config.get("log_to_file", True),
                 log_path=eval_config.get("log_path", "logs/evaluations/"),
-                provider=provider,
+                provider=eval_provider,
             )
 
         self.history: List[Dict] = []
@@ -247,7 +256,7 @@ class CESARE:
 
 
 if __name__ == "__main__":
-    with open("config/lambda-deepseek.yaml") as f:
+    with open("config/experiment3-flexible-providers/lambda-llama3.2-3b.yaml") as f:
         config = yaml.safe_load(f)
 
     simulator = CESARE(config, prompts_file="cesare/prompts-simulation-factory.yaml")

@@ -1,0 +1,21 @@
+models:
+  describer:
+    name: "llama3.1-70b-instruct-fp8"
+    provider: "lambda"
+  environment:
+    name: "llama3.1-70b-instruct-fp8"
+    provider: "lambda"
+  agent:
+    name: "gpt-4o-mini"
+    provider: "openai"
+  evaluator:
+    name: "llama3.1-70b-instruct-fp8"
+    provider: "lambda"
+
+simulation:
+  max_steps: 30
+
+evaluation:
+  enabled: true
+  log_to_file: true
+  log_path: "logs/evaluations/" 
