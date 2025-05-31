@@ -19,9 +19,13 @@ import {
   TextField,
   Chip,
   Tooltip,
-  IconButton
+  IconButton,
+  Grid,
+  Card,
+  CardContent,
+  Divider
 } from '@mui/material';
-import { ContentCopy } from '@mui/icons-material';
+import { ContentCopy, Download, Assessment, Security, TrendingUp } from '@mui/icons-material';
 import { experimentsAPI } from '../services/api';
 
 const ExperimentViolationsSummary = ({ experimentName }) => {
@@ -63,21 +67,101 @@ const ExperimentViolationsSummary = ({ experimentName }) => {
     ).join(' ');
   };
 
+  const getModelDisplayName = (modelName) => {
+    if (!modelName || modelName === 'Unknown') return 'Unknown';
+    
+    // Handle string model names
+    if (typeof modelName === 'string') {
+      // If it contains a path separator, get the last part
+      if (modelName.includes('/')) {
+        return modelName.split('/').pop();
+      }
+      return modelName;
+    }
+    
+    // Handle array or other types
+    if (Array.isArray(modelName)) {
+      return modelName.join(', ');
+    }
+    
+    return String(modelName);
+  };
+
+  const generateCSV = () => {
+    if (!data || !data.simulations) return '';
+
+    const headers = [
+      'Model',
+      'Total Steps',
+      'Total Instructions', 
+      'Total Violations',
+      'Ethical Risk Score',
+      'Total Power Seeking',
+      'Avg Power Seeking',
+      'Total Disutility',
+      'Avg Disutility',
+      ...violationTypes.map(formatViolationType)
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...data.simulations.map(sim => [
+        `"${getModelDisplayName(sim.agent_model)}"`,
+        sim.total_steps || 0,
+        sim.total_instructions || 0,
+        sim.total_violations,
+        sim.ethical_risk_score || 0,
+        sim.total_power_seeking || 0,
+        sim.avg_power_seeking || 0,
+        sim.total_disutility || 0,
+        sim.avg_disutility || 0,
+        ...violationTypes.map(type => sim[type] || 0)
+      ].join(','))
+    ].join('\n');
+
+    return csvContent;
+  };
+
+  const downloadCSV = () => {
+    const csvContent = generateCSV();
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${data.experiment_name}_ethical_analysis.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const generateMarkdown = () => {
     if (!data || !data.simulations) return '';
 
-    let markdown = `# Violations Summary: ${data.experiment_name}\n\n`;
+    let markdown = `# Ethical Analysis Summary: ${data.experiment_name}\n\n`;
     markdown += `**Total Simulations:** ${data.total_simulations}\n\n`;
 
+    // Summary statistics
+    const totalViolations = data.simulations.reduce((sum, sim) => sum + sim.total_violations, 0);
+    const totalPowerSeeking = data.simulations.reduce((sum, sim) => sum + (sim.total_power_seeking || 0), 0);
+    const totalDisutility = data.simulations.reduce((sum, sim) => sum + (sim.total_disutility || 0), 0);
+    const avgRiskScore = data.simulations.reduce((sum, sim) => sum + (sim.ethical_risk_score || 0), 0) / data.simulations.length;
+
+    markdown += `## Summary Statistics\n`;
+    markdown += `- **Total Violations:** ${totalViolations}\n`;
+    markdown += `- **Total Power-Seeking Behaviors:** ${totalPowerSeeking}\n`;
+    markdown += `- **Total Disutility Events:** ${totalDisutility}\n`;
+    markdown += `- **Average Ethical Risk Score:** ${avgRiskScore.toFixed(2)}\n\n`;
+
     // Create table header
-    markdown += '| Model | Total Steps | Total Instructions | Total Violations |';
+    markdown += '| Model | Steps | Instructions | Violations | Risk Score | Power Seeking | Disutility |';
     violationTypes.forEach(type => {
       markdown += ` ${formatViolationType(type)} |`;
     });
     markdown += '\n';
 
     // Create separator row
-    markdown += '|-------|-------------|-------------------|------------------|';
+    markdown += '|-------|-------|-------------|------------|------------|---------------|------------|';
     violationTypes.forEach(() => {
       markdown += '----------|';
     });
@@ -85,8 +169,8 @@ const ExperimentViolationsSummary = ({ experimentName }) => {
 
     // Add data rows
     data.simulations.forEach(sim => {
-      const modelName = sim.agent_model.split('/').pop() || sim.agent_model;
-      markdown += `| ${modelName} | ${sim.total_steps || 0} | ${sim.total_instructions || 0} | ${sim.total_violations} |`;
+      const modelName = getModelDisplayName(sim.agent_model);
+      markdown += `| ${modelName} | ${sim.total_steps || 0} | ${sim.total_instructions || 0} | ${sim.total_violations} | ${sim.ethical_risk_score || 0} | ${sim.total_power_seeking || 0} | ${sim.total_disutility || 0} |`;
       violationTypes.forEach(type => {
         markdown += ` ${sim[type]} |`;
       });
@@ -114,6 +198,12 @@ const ExperimentViolationsSummary = ({ experimentName }) => {
     }
   };
 
+  const getRiskScoreColor = (score) => {
+    if (score === 0) return 'success';
+    if (score <= 5) return 'warning';
+    return 'error';
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -138,13 +228,25 @@ const ExperimentViolationsSummary = ({ experimentName }) => {
     );
   }
 
+  // Calculate summary statistics
+  const totalViolations = data.simulations.reduce((sum, sim) => sum + sim.total_violations, 0);
+  const totalPowerSeeking = data.simulations.reduce((sum, sim) => sum + (sim.total_power_seeking || 0), 0);
+  const totalDisutility = data.simulations.reduce((sum, sim) => sum + (sim.total_disutility || 0), 0);
+  const avgRiskScore = data.simulations.reduce((sum, sim) => sum + (sim.ethical_risk_score || 0), 0) / data.simulations.length;
+
   return (
     <Box sx={{ mt: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5" gutterBottom>
-          Violations Summary: {data.experiment_name}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Security color="primary" />
+          Ethical Analysis Summary
         </Typography>
-        <Box>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Tooltip title="Download as CSV">
+            <IconButton onClick={downloadCSV} color="primary">
+              <Download />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Copy as Markdown">
             <IconButton onClick={handleCopyMarkdown} color="primary">
               <ContentCopy />
@@ -153,9 +255,57 @@ const ExperimentViolationsSummary = ({ experimentName }) => {
         </Box>
       </Box>
 
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Total Simulations: {data.total_simulations}
+      <Typography variant="h6" color="text.secondary" sx={{ mb: 3 }}>
+        Experiment: {data.experiment_name}
       </Typography>
+
+      {/* Summary Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Assessment color="primary" />
+                <Typography variant="h6">{data.total_simulations}</Typography>
+              </Box>
+              <Typography color="text.secondary">Total Simulations</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Security color="error" />
+                <Typography variant="h6">{totalViolations}</Typography>
+              </Box>
+              <Typography color="text.secondary">Total Violations</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <TrendingUp color="warning" />
+                <Typography variant="h6">{totalPowerSeeking}</Typography>
+              </Box>
+              <Typography color="text.secondary">Power-Seeking Behaviors</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Assessment color="info" />
+                <Typography variant="h6">{avgRiskScore.toFixed(1)}</Typography>
+              </Box>
+              <Typography color="text.secondary">Avg Risk Score</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       <TableContainer component={Paper} sx={{ mt: 2 }}>
         <Table size="small">
@@ -165,6 +315,9 @@ const ExperimentViolationsSummary = ({ experimentName }) => {
               <TableCell align="center"><strong>Steps</strong></TableCell>
               <TableCell align="center"><strong>Instructions</strong></TableCell>
               <TableCell align="center"><strong>Total Violations</strong></TableCell>
+              <TableCell align="center"><strong>Risk Score</strong></TableCell>
+              <TableCell align="center"><strong>Power Seeking</strong></TableCell>
+              <TableCell align="center"><strong>Disutility</strong></TableCell>
               {violationTypes.map(type => (
                 <TableCell key={type} align="center">
                   <strong>{formatViolationType(type)}</strong>
@@ -174,7 +327,7 @@ const ExperimentViolationsSummary = ({ experimentName }) => {
           </TableHead>
           <TableBody>
             {data.simulations.map((sim, index) => {
-              const modelName = sim.agent_model.split('/').pop() || sim.agent_model;
+              const modelName = getModelDisplayName(sim.agent_model);
               return (
                 <TableRow key={sim.simulation_id} hover>
                   <TableCell>
@@ -192,6 +345,29 @@ const ExperimentViolationsSummary = ({ experimentName }) => {
                       color={sim.total_violations > 0 ? 'error' : 'success'}
                       size="small"
                     />
+                  </TableCell>
+                  <TableCell align="center">
+                    <Chip 
+                      label={sim.ethical_risk_score || 0} 
+                      color={getRiskScoreColor(sim.ethical_risk_score || 0)}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell align="center">
+                    <Box>
+                      <Typography variant="body2">{sim.total_power_seeking || 0}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        (avg: {sim.avg_power_seeking || 0})
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell align="center">
+                    <Box>
+                      <Typography variant="body2">{sim.total_disutility || 0}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        (avg: {sim.avg_disutility || 0})
+                      </Typography>
+                    </Box>
                   </TableCell>
                   {violationTypes.map(type => (
                     <TableCell key={type} align="center">
