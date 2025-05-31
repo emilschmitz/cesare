@@ -5,7 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import simulationsAPI, { experimentsAPI } from './services/api';
 import Layout from './components/Layout';
 import SimulationDetail from './components/SimulationDetail';
-import ExperimentViolationsSummary from './components/ExperimentViolationsSummary';
+import ExperimentEthicalAnalysis from './components/ExperimentViolationsSummary';
 
 // Create a theme instance with natural colors
 const theme = createTheme({
@@ -118,11 +118,11 @@ const SimulationView = () => {
   );
 };
 
-// ExperimentViolationsView component to handle experiment violations summary
+// ExperimentEthicalAnalysisView component to handle experiment ethical analysis
 const ExperimentViolationsView = () => {
   const { experimentName } = useParams();
   
-  return <ExperimentViolationsSummary experimentName={experimentName} />;
+  return <ExperimentEthicalAnalysis experimentName={experimentName} />;
 };
 
 // Main App component

@@ -30,6 +30,7 @@ models:
 
 simulation:
   max_steps: 3
+  repetitions: 1  # Number of times to repeat each agent configuration (default: 1)
 
 evaluation:
   enabled: true

@@ -54,35 +54,45 @@ class ExperimentRunner:
                 with open(config_file, "r") as f:
                     config = yaml.safe_load(f)
 
+                # Get repetitions from config (default to 1)
+                repetitions = config.get("simulation", {}).get("repetitions", 1)
+
                 models = config.get("models", {})
                 if "agents" in models and isinstance(models["agents"], list):
-                    # Multi-agent config - create virtual configs for each agent
+                    # Multi-agent config - create virtual configs for each agent and repetition
                     for i, agent in enumerate(models["agents"]):
-                        virtual_config_name = f"{config_file.stem}-agent{i + 1}-{agent['name'].replace('/', '-')}"
+                        for rep in range(repetitions):
+                            virtual_config_name = f"{config_file.stem}-agent{i + 1}-{agent['name'].replace('/', '-')}-rep{rep + 1}"
+                            expanded_configs.append(
+                                {
+                                    "file_path": str(config_file),
+                                    "virtual_name": virtual_config_name,
+                                    "agent_index": i,
+                                    "agent_name": agent["name"],
+                                    "agent_provider": agent["provider"],
+                                    "repetition": rep + 1,
+                                    "total_repetitions": repetitions,
+                                }
+                            )
+                else:
+                    # Single agent config - create repetitions
+                    for rep in range(repetitions):
+                        virtual_config_name = f"{config_file.stem}-rep{rep + 1}" if repetitions > 1 else config_file.stem
                         expanded_configs.append(
                             {
                                 "file_path": str(config_file),
                                 "virtual_name": virtual_config_name,
-                                "agent_index": i,
-                                "agent_name": agent["name"],
-                                "agent_provider": agent["provider"],
+                                "agent_index": None,
+                                "agent_name": models.get("agent", {}).get(
+                                    "name", "unknown"
+                                ),
+                                "agent_provider": models.get("agent", {}).get(
+                                    "provider", "unknown"
+                                ),
+                                "repetition": rep + 1,
+                                "total_repetitions": repetitions,
                             }
                         )
-                else:
-                    # Single agent config - keep as is
-                    expanded_configs.append(
-                        {
-                            "file_path": str(config_file),
-                            "virtual_name": config_file.stem,
-                            "agent_index": None,
-                            "agent_name": models.get("agent", {}).get(
-                                "name", "unknown"
-                            ),
-                            "agent_provider": models.get("agent", {}).get(
-                                "provider", "unknown"
-                            ),
-                        }
-                    )
             except Exception as e:
                 print(f"Warning: Could not parse {config_file}: {e}")
                 # Keep the file anyway for error handling
@@ -93,6 +103,8 @@ class ExperimentRunner:
                         "agent_index": None,
                         "agent_name": "unknown",
                         "agent_provider": "unknown",
+                        "repetition": 1,
+                        "total_repetitions": 1,
                     }
                 )
 
@@ -128,6 +140,8 @@ class ExperimentRunner:
                 "config_file": os.path.basename(config_file),
                 "virtual_config": config_name,
                 "agent_name": agent_name,
+                "repetition": config_info.get("repetition", 1),
+                "total_repetitions": config_info.get("total_repetitions", 1),
             }
 
             # Use local prompt files from the experiment folder
