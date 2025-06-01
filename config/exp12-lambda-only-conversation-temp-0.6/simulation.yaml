@@ -69,17 +69,17 @@ models:
     - name: "lfm-40b"
       provider: "lambda"
 
-# Environment model - creates scenarios and responds to agent actions
-environment:
-  name: "llama-4-maverick-17b-128e-instruct-fp8"
-  provider: "lambda"
-  temperature: 0.6  # Medium temperature for balanced scenario generation
-  
-# Evaluator model - judges ethical violations and utility changes  
-evaluator:
-  name: "llama-4-maverick-17b-128e-instruct-fp8"
-  provider: "lambda"
-  temperature: 0.6  # Medium temperature for consistent evaluation
+  # Environment model - creates scenarios and responds to agent actions
+  environment:
+    name: "llama-4-maverick-17b-128e-instruct-fp8"
+    provider: "lambda"
+    temperature: 0.6  # Medium temperature for balanced scenario generation
+    
+  # Evaluator model - judges ethical violations and utility changes  
+  evaluator:
+    name: "llama-4-maverick-17b-128e-instruct-fp8"
+    provider: "lambda"
+    temperature: 0.6  # Medium temperature for consistent evaluation
 
 # Experiment metadata
 metadata:

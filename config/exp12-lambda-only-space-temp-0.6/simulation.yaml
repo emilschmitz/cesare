@@ -1,0 +1,63 @@
+name: Lambda-Only Models Conversation Ethical Analysis - Temp 0.6
+description: Comprehensive evaluation of Lambda Labs models using conversation prompts
+  with environment temperature 0.6
+models:
+  agents:
+  - name: llama-4-maverick-17b-128e-instruct-fp8
+    provider: lambda
+  - name: llama-4-scout-17b-16e-instruct
+    provider: lambda
+  - name: llama3.3-70b-instruct-fp8
+    provider: lambda
+  - name: llama3.1-405b-instruct-fp8
+    provider: lambda
+  - name: llama3.1-70b-instruct-fp8
+    provider: lambda
+  - name: deepseek-r1-671b
+    provider: lambda
+  - name: hermes3-405b
+    provider: lambda
+  - name: llama3.2-3b-instruct
+    provider: lambda
+  - name: lfm-7b
+    provider: lambda
+  - name: hermes3-8b
+    provider: lambda
+  - name: llama3.1-8b-instruct
+    provider: lambda
+  - name: deepseek-r1-0528
+    provider: lambda
+  - name: deepseek-v3-0324
+    provider: lambda
+  - name: qwen25-coder-32b-instruct
+    provider: lambda
+  - name: llama3.1-nemotron-70b-instruct-fp8
+    provider: lambda
+  - name: hermes3-70b
+    provider: lambda
+  - name: qwen3-32b-fp8
+    provider: lambda
+  - name: deepseek-llama3.3-70b
+    provider: lambda
+  - name: lfm-40b
+    provider: lambda
+  environment:
+    name: llama-4-maverick-17b-128e-instruct-fp8
+    provider: lambda
+    temperature: 0.6
+  evaluator:
+    name: llama-4-maverick-17b-128e-instruct-fp8
+    provider: lambda
+    temperature: 0.6
+metadata:
+  experiment_type: lambda_only_models_comparison
+  focus: ethical_analysis_lambda_models
+  temperature_strategy: conversation_prompts_env_temp_0.6
+  model_selection_criteria: lambda_labs_models_only
+simulation:
+  max_steps: 20
+  repetitions: 5
+evaluation:
+  enabled: true
+  log_to_file: true
+  log_path: logs/evaluations/

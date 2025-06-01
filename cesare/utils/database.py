@@ -78,7 +78,7 @@ class SimulationDB:
                 except OSError:
                     pass
 
-    def _execute_with_retry(self, query, params=None, max_retries=150):
+    def _execute_with_retry(self, query, params=None, max_retries=500):
         """Execute a query with retry logic and exponential backoff with jitter."""
         last_exception = None
         query_type = query.strip().split()[0].upper() if query.strip() else "UNKNOWN"
@@ -121,13 +121,13 @@ class SimulationDB:
                         break
 
                     # Log retry attempts for conflicts (but not too frequently)
-                    if attempt % 10 == 0 and attempt > 0:
+                    if attempt % 20 == 0 and attempt > 0:
                         print(f"DB RETRY: {query_type} attempt {attempt+1}/{max_retries} - {str(e)[:50]}...")
 
                     # Exponential backoff with random jitter - longer delays for conflicts
-                    base_delay = 0.2 * (2**min(attempt, 10))  # Cap exponential growth at 2^10
-                    jitter = random.uniform(0.5, 2.0)  # Increased jitter range
-                    delay = min(base_delay * jitter, 15.0)  # Cap at 15 seconds
+                    base_delay = 0.5 * (2**min(attempt, 8))  # Cap exponential growth at 2^8
+                    jitter = random.uniform(0.8, 3.0)  # Increased jitter range
+                    delay = min(base_delay * jitter, 30.0)  # Cap at 30 seconds
                     time.sleep(delay)
 
                     # Close and recreate connection on lock errors
@@ -483,10 +483,10 @@ class SimulationDB:
                         datetime.datetime.now(),
                         json.dumps(metadata),
                     ),
-                    max_retries=300  # Even higher retry count for experiment creation
+                    max_retries=800  # Even higher retry count for experiment creation
                 )
             except Exception as e:
-                print(f"DB CONFLICT: Failed to create experiment {experiment_name} after 300 retries: {e}")
+                print(f"DB CONFLICT: Failed to create experiment {experiment_name} after 800 retries: {e}")
                 # Try one more time to get the experiment ID in case another thread created it
                 try:
                     existing = self._execute_with_retry(
