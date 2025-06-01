@@ -1,5 +1,0 @@
-exp12-conversation-temp-0.6
-exp12-conversation-temp-1.2
-exp12-factory-temp-0.6
-exp12-factory-temp-1.2
-exp12-space-temp-0.6

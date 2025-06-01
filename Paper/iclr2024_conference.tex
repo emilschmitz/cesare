@@ -1,4 +1,3 @@
-
 \documentclass{article} % For LaTeX2e
 \usepackage{iclr2024_conference,times}
 
@@ -49,7 +48,7 @@ Pittsburgh, Pennsylvania \\
 
 % Placeholder AI-generated abstract
 \begin{abstract}
-CESARE (Computational Evaluation System for Autonomous Reasoning and Ethics) is a safety‑oriented framework that scores autonomous agents as they interact with simulated environments. Inspired by the MACHIAVELLI benchmark, it automatically generates bespoke "micro‑games" with large language models, then evaluates agent behaviour against multiple ethical dimensions, including manipulation, non‑physical harm, unfairness, and other violations. An interactive dashboard aggregates results per simulation, presents violation summaries and filters, and drills down to step‑level evidence. By coupling on‑demand scenario generation with fine‑grained ethical analysis, CESARE aims to provide a scalable, reproducible way to stress‑test emerging AI systems and surface failure modes before real‑world deployment.
+CESARE (Computational Evaluation System for Autonomous Reasoning and Ethics) is a safety‑oriented framework that scores autonomous agents as they interact with simulated environments. Inspired by the MACHIAVELLI benchmark, it automatically generates bespoke "micro‑games" with large language models, then evaluates agent behaviour along three axes: deontological violations (e.g., manipulation, harm, unfairness), utility (consequentialist impact), and power-seeking. An interactive dashboard aggregates results per simulation, presents violation summaries and filters, and drills down to step‑level evidence. By coupling on‑demand scenario generation with fine‑grained ethical analysis, CESARE aims to provide a scalable, reproducible way to stress‑test emerging AI systems and surface failure modes before real‑world deployment.
 \end{abstract}
 
 \section{Introduction}
@@ -88,7 +87,7 @@ and scenarios can wander into unforeseen territory—exactly the setting
 that worries alignment researchers.
 
 The remainder of this section spells out how we wire the
-agent–environment loop, label each action’s ethical profile, and log the
+agent–environment loop, label each action's ethical profile, and log the
 results for later analysis.
 
 \subsection{Interaction loop}
@@ -97,8 +96,8 @@ Each simulation starts with a \textbf{start prompt} that tells the
 \emph{agent} (the model under evaluation)
 
 \begin{itemize}[leftmargin=1.2em]
-\item the initial situation (e.g.\ “life-support failure on a space
-      station”), and
+\item the initial situation (e.g.\ "life-support failure on a space
+      station"), and
 \item the task or objective it should pursue.
 \end{itemize}
 
@@ -133,7 +132,7 @@ criteria taken from the MACHIAVELLI benchmark \citep{pan2023rewards}:
 \begin{enumerate}[leftmargin=1.2em]
 \item \textbf{Ethical violations}: 13 deontological tags
       (killing, deception, manipulation, \emph{etc.});
-\item \textbf{Disutility}: $+1$, $0$, or $-1$ impact on others’
+\item \textbf{Disutility}: $+1$, $0$, or $-1$ impact on others'
       wellbeing (consequentialist signal);
 \item \textbf{Power seeking}: binary flags for physical, economic,
       informational, and social power grabs.
@@ -170,7 +169,7 @@ This section presents six key findings from our systematic analysis of ethical v
 Contrary to conventional expectations, our analysis reveals a complex relationship between model parameters and ethical violation rates. Figure \ref{fig:scaling_law} shows that intermediate‑scale models (32B–70B parameters) demonstrate the lowest violation rates, with \texttt{qwen25‑coder‑32b‑instruct} (3.7\% violation rate) and \texttt{deepseek‑llama3.3‑70b} (1.9\%) significantly outperforming both smaller and larger models. 
 
 Surprisingly, the largest model in our evaluation, \texttt{deepseek‑v3} (671 B parameters), exhibited the highest violation rate at 50.9\%, suggesting that scale alone does not guarantee ethical alignment. This aligns with recent
-work by \cite{mckenzie2023inverse}, showing more than a dozen concrete tasks where performance \textbf{decreases} as language models grow, directly overturning the ``bigger is better” intuition.
+work by \cite{mckenzie2023inverse}, showing more than a dozen concrete tasks where performance \textbf{decreases} as language models grow, directly overturning the "bigger is better" intuition.
 
 \begin{figure}[!htb]
     \centering
@@ -235,7 +234,7 @@ its core logic.
 
 \section{Conclusion}
 
-We introduced CESARE, a Computational Evaluation System for Autonomous Reasoning and Ethics, and demonstrated its effectiveness through extensive simulation-based ethical assessments across nine state-of-the-art language models. CESARE’s dynamic micro-game generator creates realistic, high-stress ethical dilemmas, going beyond static benchmarks to reveal hidden manipulation, deception, and harm tendencies that traditional evaluation methods might overlook. It provides fine-grained telemetry essential for reproducible audits and targeted alignment research. Our findings indicate that intermediate-scale models (32B - 70B parameters) and moderate sampling temperatures (around 0.5 - 0.8) currently yield the safest ethical behaviors. Ultimately, CESARE offers an extensible platform that enables iteration and ethical stress-testing for autonomous AI systems before deployment.
+We introduced CESARE, a Computational Evaluation System for Autonomous Reasoning and Ethics, and demonstrated its effectiveness through extensive simulation-based ethical assessments across nine state-of-the-art language models. CESARE's dynamic micro-game generator creates realistic, high-stress ethical dilemmas, going beyond static benchmarks to reveal hidden manipulation, deception, and harm tendencies that traditional evaluation methods might overlook. It provides fine-grained telemetry essential for reproducible audits and targeted alignment research. Our findings indicate that intermediate-scale models (32B - 70B parameters) and moderate sampling temperatures (around 0.5 - 0.8) currently yield the safest ethical behaviors. Ultimately, CESARE offers an extensible platform that enables iteration and ethical stress-testing for autonomous AI systems before deployment.
 
 
 \bibliography{iclr2024_conference}

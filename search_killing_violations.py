@@ -1,176 +1,208 @@
+#!/usr/bin/env python3
+"""
+Search for killing violations in exp6 experiments in the CESARE database.
+"""
+
 from cesare.utils.database import SimulationDB
 import pandas as pd
 import json
+
+def search_exp6_killing():
+    """Search for killing violations in exp6 experiments."""
+    print("🔍 Searching for killing violations in exp6 experiments...")
+    print("=" * 60)
 
 # Connect to database
 db = SimulationDB('logs/simulations.duckdb')
 
 try:
-    # Let's look at the structure of raw_evaluation data and config
-    sample_query = '''
-    SELECT s.config, e.evaluation_type, e.raw_evaluation, e.step
+        # First, let's see what exp6 experiments we have
+        print("📊 Checking exp6 experiments in database...")
+        
+        exp6_query = '''
+        SELECT DISTINCT s.simulation_id, s.config, s.start_time, s.experiment_id, e.experiment_name
     FROM simulations s
-    JOIN evaluations e ON s.simulation_id = e.simulation_id
-    WHERE e.evaluation_type = 'ethical_violations'
-    LIMIT 3
-    '''
-    
-    sample_data = db._execute_with_retry(sample_query).fetchdf()
-    print("Sample evaluation data structure:")
-    for _, row in sample_data.iterrows():
-        try:
-            config = json.loads(row['config']) if isinstance(row['config'], str) else row['config']
-            agent_model = config.get('models', {}).get('agent', {}).get('name', 'Unknown')
-            print(f"Agent Model: {agent_model}")
-            print(f"Step: {row['step']}")
-            print(f"Raw evaluation: {row['raw_evaluation']}")
-            print("-" * 30)
-        except Exception as e:
-            print(f"Error parsing config: {e}")
-    print()
-    
-    # Get all ethical violations and parse JSON in Python to find killing violations
-    all_violations_query = '''
-    SELECT s.simulation_id, s.config, s.start_time, e.step, e.raw_evaluation
+        LEFT JOIN experiments e ON s.experiment_id = e.experiment_id
+        WHERE s.experiment_id LIKE '%exp6%' OR e.experiment_name LIKE '%exp6%'
+        ORDER BY s.start_time DESC
+        '''
+        
+        exp6_sims = db._execute_with_retry(exp6_query).fetchdf()
+        
+        print(f"Found {len(exp6_sims)} exp6 simulations")
+        
+        if not exp6_sims.empty:
+            print("\n🧪 Exp6 experiments found:")
+            for _, row in exp6_sims.head(10).iterrows():
+                print(f"  - {row['experiment_name']} (Sim: {row['simulation_id'][:8]}...)")
+            if len(exp6_sims) > 10:
+                print(f"  ... and {len(exp6_sims) - 10} more")
+        
+        # Now search for killing violations in exp6
+        print("\n🚨 Searching for killing violations in exp6...")
+        
+        # Method 1: Check evaluations table
+        violations_query = '''
+        SELECT s.simulation_id, s.config, s.start_time, s.experiment_id, e.experiment_name,
+               ev.step, ev.raw_evaluation, ev.action, ev.instruction_id
     FROM simulations s
-    JOIN evaluations e ON s.simulation_id = e.simulation_id
-    WHERE e.evaluation_type = 'ethical_violations'
+        LEFT JOIN experiments e ON s.experiment_id = e.experiment_id
+        JOIN evaluations ev ON s.simulation_id = ev.simulation_id
+        WHERE (s.experiment_id LIKE '%exp6%' OR e.experiment_name LIKE '%exp6%')
+        AND ev.evaluation_type = 'ethical_violations'
     ORDER BY s.start_time DESC
     '''
     
-    all_violations = db._execute_with_retry(all_violations_query).fetchdf()
-    print(f'Checking {len(all_violations)} ethical violation records for killing...')
+        exp6_violations = db._execute_with_retry(violations_query).fetchdf()
+        print(f"Checking {len(exp6_violations)} ethical violation records in exp6...")
     
-    killing_found = []
-    for _, row in all_violations.iterrows():
+        exp6_killing = []
+        
+        for _, row in exp6_violations.iterrows():
         try:
-            eval_data = json.loads(row['raw_evaluation']) if isinstance(row['raw_evaluation'], str) else row['raw_evaluation']
-            if eval_data and eval_data.get('killing') == 1:
                 config = json.loads(row['config']) if isinstance(row['config'], str) else row['config']
                 agent_model = config.get('models', {}).get('agent', {}).get('name', 'Unknown')
-                killing_found.append({
+                
+                # Parse the evaluation data
+                eval_data = json.loads(row['raw_evaluation']) if isinstance(row['raw_evaluation'], str) else row['raw_evaluation']
+                
+                if eval_data and eval_data.get('labels', {}).get('killing') == 1:
+                    exp6_killing.append({
                     'simulation_id': row['simulation_id'],
                     'agent_model': agent_model,
                     'step': row['step'],
                     'start_time': row['start_time'],
+                        'experiment_id': row['experiment_id'],
+                        'experiment_name': row['experiment_name'],
+                        'action': eval_data.get('action', 'Unknown'),
+                        'instruction_id': row['instruction_id'],
                     'raw_evaluation': row['raw_evaluation']
                 })
         except Exception as e:
             continue
     
-    if killing_found:
-        print(f'\n🚨 Found {len(killing_found)} KILLING VIOLATIONS:')
-        print("=" * 60)
-        for violation in killing_found:
-            print(f'Simulation ID: {violation["simulation_id"]}')
-            print(f'Agent Model: {violation["agent_model"]}')
-            print(f'Step Number: {violation["step"]}')
-            print(f'Date: {violation["start_time"]}')
-            print(f'Raw evaluation: {violation["raw_evaluation"]}')
-            print('-' * 50)
-    else:
-        print('No killing violations found.')
-        
-    # Check for deepseek-v3 models specifically
-    all_sims_query = '''
-    SELECT DISTINCT s.simulation_id, s.config, s.start_time
+        # Method 2: Check ethical_violations table directly if it exists
+        try:
+            direct_violations_query = '''
+            SELECT s.simulation_id, s.config, s.start_time, s.experiment_id, e.experiment_name,
+                   ev.step, ev.action, ev.instruction_id, ev.raw_evaluation
     FROM simulations s
+            LEFT JOIN experiments e ON s.experiment_id = e.experiment_id
+            JOIN ethical_violations ev ON s.simulation_id = ev.simulation_id
+            WHERE (s.experiment_id LIKE '%exp6%' OR e.experiment_name LIKE '%exp6%')
+            AND ev.killing = true
     ORDER BY s.start_time DESC
     '''
     
-    all_sims = db._execute_with_retry(all_sims_query).fetchdf()
+            direct_violations = db._execute_with_retry(direct_violations_query).fetchdf()
+            print(f"Found {len(direct_violations)} direct killing violations in ethical_violations table for exp6")
     
-    v3_sims = []
-    for _, row in all_sims.iterrows():
+            for _, row in direct_violations.iterrows():
         try:
             config = json.loads(row['config']) if isinstance(row['config'], str) else row['config']
             agent_model = config.get('models', {}).get('agent', {}).get('name', 'Unknown')
-            if 'v3' in agent_model.lower() or 'deepseek-v3' in agent_model.lower():
-                v3_sims.append({
+                    
+                    # Check if we already have this violation
+                    existing = any(v['simulation_id'] == row['simulation_id'] and v['step'] == row['step'] 
+                                 for v in exp6_killing)
+                    
+                    if not existing:
+                        exp6_killing.append({
                     'simulation_id': row['simulation_id'],
                     'agent_model': agent_model,
-                    'start_time': row['start_time']
+                            'step': row['step'],
+                            'start_time': row['start_time'],
+                            'experiment_id': row['experiment_id'],
+                            'experiment_name': row['experiment_name'],
+                            'action': row['action'],
+                            'instruction_id': row['instruction_id'],
+                            'raw_evaluation': row['raw_evaluation']
                 })
-        except:
+                except Exception as e:
             continue
     
-    print(f'\nFound {len(v3_sims)} simulations with v3 models:')
-    for sim in v3_sims:
-        print(f'- {sim["agent_model"]} (ID: {sim["simulation_id"]})')
+        except Exception as e:
+            print(f"Note: Could not query ethical_violations table directly: {e}")
         
-    # Get detailed violation info for v3 models
-    if len(v3_sims) > 0:
-        print('\nDetailed violation analysis for v3 models:')
-        for sim in v3_sims:
-            sim_id = sim['simulation_id']
-            violations_query = f'''
-            SELECT step, raw_evaluation
-            FROM evaluations
-            WHERE simulation_id = '{sim_id}' AND evaluation_type = 'ethical_violations'
-            ORDER BY step
-            '''
-            violations = db._execute_with_retry(violations_query).fetchdf()
+        # Display results
+        if exp6_killing:
+            print(f"\n💀 FOUND {len(exp6_killing)} KILLING VIOLATIONS IN EXP6:")
+            print("=" * 80)
             
-            print(f'\nModel: {sim["agent_model"]} (ID: {sim_id})')
-            total_violations = 0
-            violation_types = set()
+            for i, violation in enumerate(exp6_killing, 1):
+                print(f"\n{i}. KILLING VIOLATION FOUND:")
+                print(f"   🆔 Simulation ID: {violation['simulation_id']}")
+                print(f"   🤖 Agent Model: {violation['agent_model']}")
+                print(f"   📅 Date: {violation['start_time']}")
+                print(f"   🧪 Experiment: {violation['experiment_name']} ({violation['experiment_id']})")
+                print(f"   📍 Step: {violation['step']}")
+                print(f"   🎯 Action: {violation['action']}")
+                print(f"   🔗 Instruction ID: {violation['instruction_id']}")
+                print(f"   📝 Raw Evaluation: {violation['raw_evaluation']}")
+                print("-" * 60)
+                
+            # Get context for these violations
+            print(f"\n📖 GETTING CONTEXT FOR KILLING VIOLATIONS:")
+            print("=" * 60)
             
-            for _, viol in violations.iterrows():
+            for violation in exp6_killing:
+                print(f"\n🔍 Context for simulation {violation['simulation_id'][:8]}... step {violation['step']}:")
+                
                 try:
-                    eval_data = json.loads(viol['raw_evaluation']) if isinstance(viol['raw_evaluation'], str) else viol['raw_evaluation']
-                    if eval_data:
-                        for vtype, value in eval_data.items():
-                            if value == 1:
-                                violation_types.add(vtype)
-                                total_violations += 1
-                                if vtype == 'killing':
-                                    print(f'  🚨 Step {viol["step"]}: {vtype} ⚠️ KILLING VIOLATION!')
+                    history = db.get_simulation_history(violation['simulation_id'])
+                    if not history.empty:
+                        # Show a few steps around the violation
+                        violation_step = violation['step']
+                        context_steps = history[
+                            (history['step'] >= max(0, violation_step - 2)) & 
+                            (history['step'] <= violation_step + 1)
+                        ].sort_values('step')
+                        
+                        for _, step in context_steps.iterrows():
+                            marker = "🚨" if step['step'] == violation_step and step['entry_type'] == 'instruction' else "  "
+                            print(f"   {marker} Step {step['step']} ({step['entry_type']}): {step['content'][:100]}...")
+                    else:
+                        print("   No history found for this simulation")
+                except Exception as e:
+                    print(f"   Error getting history: {e}")
+                
+                print("-" * 40)
+                
                                 else:
-                                    print(f'  Step {viol["step"]}: {vtype}')
-                except:
-                    continue
+            print("\n✅ No killing violations found in exp6 experiments")
             
-            if total_violations == 0:
-                print('  No violations found')
-            else:
-                print(f'  Total violations: {total_violations}')
-                print(f'  Violation types: {", ".join(sorted(violation_types))}')
+            # Show what exp6 experiments we do have
+            if not exp6_sims.empty:
+                print(f"\n📊 However, found {len(exp6_sims)} exp6 simulations:")
     
-    # Summary of all models with violations
-    print(f'\n=== SUMMARY OF ALL MODELS WITH VIOLATIONS ===')
-    model_violations = {}
-    
-    for _, row in all_violations.iterrows():
+                # Group by experiment name and model
+                exp6_summary = {}
+                for _, row in exp6_sims.iterrows():
         try:
             config = json.loads(row['config']) if isinstance(row['config'], str) else row['config']
             agent_model = config.get('models', {}).get('agent', {}).get('name', 'Unknown')
-            
-            eval_data = json.loads(row['raw_evaluation']) if isinstance(row['raw_evaluation'], str) else row['raw_evaluation']
-            if eval_data:
-                if agent_model not in model_violations:
-                    model_violations[agent_model] = {'total': 0, 'types': set()}
-                
-                for vtype, value in eval_data.items():
-                    if value == 1:
-                        model_violations[agent_model]['total'] += 1
-                        model_violations[agent_model]['types'].add(vtype)
+                        exp_name = row['experiment_name'] or row['experiment_id']
+                        
+                        if exp_name not in exp6_summary:
+                            exp6_summary[exp_name] = {}
+                        if agent_model not in exp6_summary[exp_name]:
+                            exp6_summary[exp_name][agent_model] = 0
+                        exp6_summary[exp_name][agent_model] += 1
         except:
             continue
     
-    # Sort by total violations
-    sorted_models = sorted(model_violations.items(), key=lambda x: x[1]['total'], reverse=True)
-    
-    print(f'Top 10 models by violation count:')
-    for i, (model, data) in enumerate(sorted_models[:10], 1):
-        has_killing = 'killing' in data['types']
-        killing_marker = ' 🚨 KILLING' if has_killing else ''
-        print(f'{i:2d}. {model}: {data["total"]} violations{killing_marker}')
-        if has_killing:
-            print(f'    Types: {", ".join(sorted(data["types"]))}')
+                for exp_name, models in exp6_summary.items():
+                    print(f"\n   📁 {exp_name}:")
+                    for model, count in models.items():
+                        print(f"      - {model}: {count} simulations")
 
 except Exception as e:
-    print(f'Error querying database: {e}')
+        print(f"❌ Error searching database: {e}")
     import traceback
     traceback.print_exc()
+    
 finally:
     db.close() 
+
+if __name__ == "__main__":
+    search_exp6_killing() 
