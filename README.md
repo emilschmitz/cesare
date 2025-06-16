@@ -76,90 +76,16 @@ python -m cesare.main
 If you provided a LangSmith API key, you can view the traces of your runs at:
 https://smith.langchain.com/projects/cesare
 
-
-## Running Simulations
-
-To run a simulation:
-
-```bash
-python cesare/main.py
-```
-
-This will execute a simulation using the default prompt and configuration.
-
-## Configuration
-
-The configuration is stored in YAML files in the `config/` directory. CESARE supports two configuration formats:
-
-### Single Agent Configuration
-
-For testing a single agent model:
-
-```yaml
-models:
-  agent:
-    name: "llama3.2-3b-instruct"
-    provider: "lambda"
-  environment:
-    name: "llama3.1-70b-instruct-fp8"
-    provider: "lambda"
-  evaluator:
-    name: "llama3.1-70b-instruct-fp8"
-    provider: "lambda"
-
-simulation:
-  max_steps: 30
-
-evaluation:
-  enabled: true
-```
-
-### Multi-Agent Configuration
-
-For comparing multiple agent models under identical conditions:
-
-```yaml
-models:
-  environment:
-    name: "llama3.1-70b-instruct-fp8"
-    provider: "lambda"
-  evaluator:
-    name: "llama3.1-70b-instruct-fp8"
-    provider: "lambda"
-  agents:
-    - name: "llama3.2-3b-instruct"
-      provider: "lambda"
-    - name: "hermes3-8b-instruct"
-      provider: "lambda"
-    - name: "llama4-scout-17b-instruct"
-      provider: "lambda"
-    - name: "qwen25-coder-32b-instruct"
-      provider: "lambda"
-
-simulation:
-  max_steps: 30
-
-evaluation:
-  enabled: true
-```
-
-**Key Benefits of Multi-Agent Configuration:**
-- **Single Config File**: Define multiple agents in one file instead of creating separate configs
-- **Shared Environment**: All agents use the same environment and evaluator models for fair comparison
-- **Automatic Expansion**: The system automatically creates separate simulations for each agent
-- **Parallel Execution**: All agent simulations run in parallel for efficiency
-- **Consistent Conditions**: Ensures all agents are tested under identical conditions
-
 ### Prompts
 
-Prompts are now stored in YAML files with a configurable structure:
+Prompts are stored in YAML files with a configurable structure:
 - `cesare/prompts-simulation-factory.yaml`: Contains prompts for factory floor simulation
 - `cesare/prompts-simulation-conversation.yaml`: Contains prompts for AI-engineer conversation simulation  
 - `cesare/prompts-evaluation.yaml`: Contains prompts for ethical evaluation
 
-#### Configurable Prompt Structure
+#### Prompt Structure
 
-The prompt files now use a configurable structure that allows you to specify:
+The prompt files use a configurable structure that allows you to specify:
 - `ai.key`: The key used in conversation history for AI responses (e.g., "instruction", "ai")
 - `ai.text`: The prompt text for the AI agent
 - `environment.key`: The key used in conversation history for environment responses (e.g., "environment", "engineer")
@@ -231,11 +157,6 @@ To run an experiment with multiple models:
 python -m cesare.main_experiment run config/experiment4-multi-agent
 ```
 
-Options:
-- `--sequential`: Run simulations sequentially instead of in parallel
-- `--max-workers=N`: Set maximum number of parallel workers (default: 3)
-- `--validate`: Only validate configs without running the experiment
-
 You can also list available experiments:
 
 ```bash
@@ -250,39 +171,6 @@ Experiments are organized in directories within the `config/` folder. Each exper
 2. **Prompts folder** with local prompt files:
    - `prompts/simulation.yaml`: Simulation prompts
    - `prompts/evaluations.yaml`: Evaluation prompts
-
-#### Single-Agent Experiments
-Traditional format with one config file per model:
-```
-config/experiment-name/
-  ├── model1-config.yaml
-  ├── model2-config.yaml
-  ├── model3-config.yaml
-  └── prompts/
-      ├── simulation.yaml
-      └── evaluations.yaml
-```
-
-#### Multi-Agent Experiments (Recommended)
-New format with one config file containing multiple agents:
-```
-config/experiment-name/
-  ├── multi-agent-comparison.yaml  # Contains multiple agents
-  └── prompts/
-      ├── simulation.yaml
-      └── evaluations.yaml
-```
-
-**Example Multi-Agent Experiment Structure:**
-```
-config/experiment4-multi-agent/
-  ├── multi-agent-comparison.yaml  # 6 agents in one file
-  └── prompts/
-      ├── simulation.yaml
-      └── evaluations.yaml
-```
-
-This single config file will automatically generate 6 separate simulations, one for each agent, all using the same environment and evaluation conditions.
 
 ### Analyzing Experiment Results
 
@@ -318,48 +206,17 @@ The database includes the following tables:
 - `power_seeking`: Specific table for power-seeking evaluations
 - `disutility`: Specific table for disutility evaluations
 - `prompts`: Prompts used in each simulation
-
-## Analysis Tools
-
-CESARE provides two tools for analyzing ethical violations:
-
-### Command-line Analysis Tool
-
-To analyze violations from the command line:
-
-```bash
-python cesare/analyze_violations.py --summary
-```
-
-Options:
-- `--summary` or `-s`: Print a summary of all violations
-- `--plot` or `-p`: Plot violations and display
-- `--output FILE` or `-o FILE`: Save plot to a file
-- `--list-type TYPE` or `-l TYPE`: List all instructions with a specific violation type
-
-Example:
-```bash
-# List all instructions with deception violations
-python cesare/analyze_violations.py --list-type deception
-```
-
-### Interactive Dashboard
-
-CESARE includes an interactive Streamlit dashboard for exploring ethical violations:
-
-```bash
-streamlit run cesare/dashboard.py
-```
-
-The dashboard provides:
-- A summary of all simulations
-- Visualization of ethical violations
-- Filtering of instructions by violation type
-- Detailed view of each simulation and its evaluations
-
+- 
 ## Web Application
 
-CESARE includes a full-stack web application for analyzing ethical violations in simulations with a modern, user-friendly interface.
+CESARE includes a custom dashboard, implemented as a web app, for analyzing ethical violations in simulations.
+
+### Running the Web Application
+```bash
+./start.sh
+```
+
+Access the web application at [http://localhost:3000](http://localhost:3000)
 
 ### Architecture
 
@@ -367,25 +224,6 @@ The web application consists of two components:
 - **Backend API** (`cesare-api/`): A Flask REST API that connects to the DuckDB database
 - **Frontend** (`cesare-web/`): A React application with Material UI components
 
-### Running the Web Application
-
-1. Start the backend API:
-   ```bash
-   cd cesare-api
-   python -m venv venv
-   source venv/bin/activate
-   pip install flask flask-cors duckdb pandas
-   python app.py
-   ```
-
-2. Start the React frontend:
-   ```bash
-   cd cesare-web
-   npm install
-   npm start
-   ```
-
-3. Access the web application at [http://localhost:3000](http://localhost:3000)
 
 ### Key Features
 
@@ -399,7 +237,7 @@ The web application consists of two components:
 ## IMPROVEMENT IDEAS
 
 * as environment, try using a (sufficiently large) non-instruct fine-tuned model
-* Jason Weston: 'rewrite and remove the bias' for describer. but how to do it exactly?
+* Idea inspired by Jason Weston's lesson: 'rewrite and remove the bias' for describer. but how to do it exactly?
 * Is concept of 'actuator' of use?
 
 
@@ -493,27 +331,3 @@ where each module's output is restricted to its role:
 * We wanna make a webapp, where a user can specify a start prompt and then let a simulation run. The webapp should then run the simulation and generate a report.
 * We wanna improve logging of ethics violations. There shoudl be an overview of all the violations that happened during a full simulation. We should be able to select on type of violation, eg 'betrayal' and view all the instructoins that included this.
 * Our final goal is to create an evaluation suite that can evaluate any real-world agentic system by providing synthetic inputs. These inputs could be manifold (eg, images, specific JSON structures, audio). Our prototype works with only plain text in prose format.
-
-# Running the Full Stack App
-
-You can now start both the API and web app together using the `start.sh` script at the project root.
-
-## Development mode (default)
-This will open two new terminal windows: one for the API (Flask) and one for the web app (React), both with auto-reload.
-
-```bash
-./start.sh
-```
-Or explicitly:
-```bash
-./start.sh dev
-```
-
-## Production mode
-This will build the React app and run the API with gunicorn. The built web app will be in `cesare-web/build`.
-
-```bash
-./start.sh prod
-```
-
----
